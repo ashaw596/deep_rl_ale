@@ -92,7 +92,7 @@ class QNetwork():
 			self.param_summaries = tf.merge_summary(param_hists)
 
 		# start tf session
-		gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.33333)  # avoid using all vram for GTX 970
+		gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.666666)  # avoid using all vram for GTX 970
 		self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
 
 		if args.watch:

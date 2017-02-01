@@ -1,6 +1,7 @@
 
 import random
 import numpy as np
+from tqdm import tqdm
 
 class DQNAgent():
 
@@ -47,9 +48,9 @@ class DQNAgent():
 
 
 	def run_random_exploration(self):
-
-		for step in range(self.random_exploration_length):
-
+		print("Running random Exploration")
+		for step in tqdm(range(self.random_exploration_length)):
+			#print("step:" + str(step))
 			state, action, reward, terminal, raw_reward = self.emulator.run_step(random.randrange(self.num_actions))
 			self.train_stats.add_reward(raw_reward)
 			self.memory.add(state, action, reward, terminal)
@@ -61,7 +62,9 @@ class DQNAgent():
 
 	def run_epoch(self, steps, epoch):
 
-		for step in range(steps):
+		for step in tqdm(range(steps)):
+			#if step%1000==0:
+			#	print step
 
 			state, action, reward, terminal, raw_reward = self.emulator.run_step(self.choose_action())
 			self.memory.add(state, action, reward, terminal)

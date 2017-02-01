@@ -3,8 +3,12 @@ Class for ale instances to generate experiences and test agents.
 Uses DeepMind's preproessing/initialization methods
 '''
 
-from ale_python_interface import ALEInterface
-import cv2
+try:
+	from ale_python_interface import ALEInterface
+except ImportError:
+	from atari_py.ale_python_interface import ALEInterface
+
+from utils import imresize
 import random
 import numpy as np
 import sys
@@ -112,7 +116,7 @@ class AtariEmulator:
 		if self.blend_method == "max":
 			img = np.amax(self.buffer, axis=0)
 
-		return cv2.resize(img, self.screen_dims, interpolation=cv2.INTER_LINEAR)
+		return imresize(img, self.screen_dims)
 
 	def isTerminal(self):
 		return (self.isGameOver() or (self.lives > self.ale.lives()))

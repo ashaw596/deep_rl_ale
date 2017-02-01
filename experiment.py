@@ -5,7 +5,7 @@ def evaluate_agent(args, agent, test_emulator, test_stats):
 	games = 0
 	reward = 0.0
 	reset = test_emulator.reset()
-	agent.test_state = list(next(zip(*reset)))
+	agent.test_state = list(list(zip(*reset))[0])
 	screen = test_emulator.preprocess()
 	visuals = None
 	if args.watch:
@@ -36,7 +36,7 @@ def evaluate_agent(args, agent, test_emulator, test_stats):
 		if not (test_stats is None):
 			test_stats.add_game()
 		reset = test_emulator.reset()
-		agent.test_state = list(next(zip(*reset)))
+		agent.test_state = list(list(zip(*reset))[0])
 
 	return reward / games
 
@@ -46,6 +46,7 @@ def run_experiment(args, agent, test_emulator, test_stats):
 	
 	agent.run_random_exploration()
 
+	print ("begin epochs")
 	for epoch in range(1, args.epochs + 1):
 
 		if epoch == 1:
