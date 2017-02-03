@@ -77,8 +77,8 @@ class DQNAgent():
 
 			# training
 			if self.total_steps % self.training_frequency == 0:
-				states, actions, rewards, next_states, terminals, min_dr, max_dr = self.memory.get_batch()
-				loss = self.network.train(states, actions, rewards, next_states, terminals, min_dr, max_dr)
+				states, actions, rewards, next_states, terminals = self.memory.get_batch()
+				loss = self.network.train(states, actions, rewards, next_states, terminals)
 				self.train_stats.add_loss(loss)
 
 			self.total_steps += 1

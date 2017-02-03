@@ -25,8 +25,9 @@ class ExperienceMemory:
 		self.rewards = np.empty(self.capacity, dtype=np.integer)
 		self.terminals = np.empty(self.capacity, dtype=np.bool)
 		self.real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
-		self.min_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
-		self.max_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
+
+		#self.min_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
+		#self.max_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
 
 		self.size = 0
 		self.current = 0
@@ -63,19 +64,19 @@ class ExperienceMemory:
 		#TODO
 		discount_factor = 0.99
 		last = end_reward
-		maxReward = end_reward
-		minReward = end_reward
+		#maxReward = end_reward
+		#minReward = end_reward
 		for i in range(self.episode_length):
 			current_index = (self.current - 1 - i) % self.capacity
 			self.real_discounted_reward[current_index] = self.rewards[current_index] + discount_factor*last
 			last = self.real_discounted_reward[current_index]
-			maxReward = max(maxReward, last)
-			minReward = min(minReward, last)
+			#maxReward = max(maxReward, last)
+			#minReward = min(minReward, last)
 
 		for i in range(self.episode_length):
 			current_index = (self.current - 1 - i) % self.capacity
-			self.min_real_discounted_reward[current_index] = minReward
-			self.max_real_discounted_reward[current_index] = maxReward
+			#self.min_real_discounted_reward[current_index] = minReward
+			#self.max_real_discounted_reward[current_index] = maxReward
 
 		self.episode_length = 0;
 
@@ -90,7 +91,7 @@ class ExperienceMemory:
 		count = 0
 
 		for index in indices:
-			frame_slice = np.arange(index - self.history_length + 1, (index + 1))
+			frame_slice = np.arange(index - self.history_length + 1, (index + 1)) % self.capacity
 			state[count] = np.transpose(np.take(self.observations, frame_slice, axis=0), [1,2,0])
 			count += 1
 		return state
@@ -110,12 +111,12 @@ class ExperienceMemory:
 		while len(samples) < self.batch_size:
 
 			if self.size < self.capacity:  # make this better
-				index = random.randrange(self.history_length, self.current)
+				index = random.randrange(self.history_length - 1, self.current)
 			else:
 				# make sure state from index doesn't overlap with current's gap
-				index = (self.current + random.randrange(self.history_length, self.size-1)) % self.capacity
-			# make sure no terminal observations are in the first state
-			if self.terminals[(index - self.history_length):index].any():
+				index = (self.current + random.randrange(self.history_length - 1, self.size)) % self.capacity
+			# make sure no terminal observations are in any state other than the last state
+			if self.terminals[(index - self.history_length + 1):index].any():
 				continue
 			else:
 				samples.append(index)
@@ -123,11 +124,11 @@ class ExperienceMemory:
 		samples = np.asarray(samples)
 
 		# create batch
-		o1 = self.get_state((samples - 1) % self.capacity)
+		o1 = self.get_state(samples)
 		a = np.eye(self.num_actions)[self.actions[samples]] # convert actions to one-hot matrix
 		r = self.rewards[samples]
 		o2 = self.get_state(samples)
 		t = self.terminals[samples].astype(int)
-		min_dr = self.min_real_discounted_reward[samples]
-		max_dr = self.max_real_discounted_reward[samples]
-		return [o1, a, r, o2, t, min_dr, max_dr]
+		#min_dr = self.min_real_discounted_reward[samples]
+		#max_dr = self.max_real_discounted_reward[samples]
+		return [o1, a, r, o2, t]

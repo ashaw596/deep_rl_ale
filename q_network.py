@@ -229,8 +229,8 @@ class QNetwork():
 		''' build loss graph '''
 		with tf.name_scope("loss"):
 
-			predictions = tf.reduce_sum(tf.mul(self.policy_q_layer, self.actions), 1)
-			
+			predictions = tf.reduce_max(tf.mul(self.policy_q_layer, self.actions), 1)
+
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
 				max_actions = tf.to_int32(tf.argmax(self.policy_q_layer, 1))
@@ -247,7 +247,7 @@ class QNetwork():
 
 			penalty_coeff = 4
 
-			maxConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(self.max_real_discounted_reward - predictions)))
+			#maxConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(self.max_real_discounted_reward - predictions)))
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
 			minConstraintError = 0
 
@@ -259,10 +259,10 @@ class QNetwork():
 			#else:
 			#	errors = (0.5 * tf.square(difference))
 
-			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
+			#return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
+			return tf.reduce_sum(diff_error)
 
-
-	def train(self, o1, a, r, o2, t, min_dr, max_dr):
+	def train(self, o1, a, r, o2, t):
 		''' train network on batch of experiences
 
 		Args:
@@ -273,7 +273,7 @@ class QNetwork():
 		'''
 
 		loss = self.sess.run([self.train_op, self.loss], 
-			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.min_real_discounted_reward:min_dr, self.max_real_discounted_reward:max_dr})[1]
+			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t})[1]
 
 		self.total_updates += 1
 		if self.total_updates % self.target_update_frequency == 0:
