@@ -24,9 +24,13 @@ class ExperienceMemory:
 		self.actions = np.empty(self.capacity, dtype=np.uint8)
 		self.rewards = np.empty(self.capacity, dtype=np.integer)
 		self.terminals = np.empty(self.capacity, dtype=np.bool)
+		self.real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
+		self.min_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
+		self.max_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
 
 		self.size = 0
 		self.current = 0
+		self.episode_length = 0
 
 
 	def add(self, obs, act, reward, terminal):
@@ -49,6 +53,31 @@ class ExperienceMemory:
 			self.size = self.capacity
 		else:
 			self.size = max(self.size, self.current)
+
+
+		self.episode_length += 1
+		if terminal:
+			self.calc_real_discounted_reward(0)
+
+	def calc_real_discounted_reward(self, end_reward):
+		#TODO
+		discount_factor = 0.99
+		last = end_reward
+		maxReward = end_reward
+		minReward = end_reward
+		for i in range(self.episode_length):
+			current_index = (self.current - 1 - i) % self.capacity
+			self.real_discounted_reward[current_index] = self.rewards[current_index] + discount_factor*last
+			last = self.real_discounted_reward[current_index]
+			maxReward = max(maxReward, last)
+			minReward = min(minReward, last)
+
+		for i in range(self.episode_length):
+			current_index = (self.current - 1 - i) % self.capacity
+			self.min_real_discounted_reward[current_index] = minReward
+			self.max_real_discounted_reward[current_index] = maxReward
+
+		self.episode_length = 0;
 
 
 	def get_state(self, indices):
@@ -99,4 +128,6 @@ class ExperienceMemory:
 		r = self.rewards[samples]
 		o2 = self.get_state(samples)
 		t = self.terminals[samples].astype(int)
-		return [o1, a, r, o2, t]
+		min_dr = self.min_real_discounted_reward[samples]
+		max_dr = self.max_real_discounted_reward[samples]
+		return [o1, a, r, o2, t, min_dr, max_dr]

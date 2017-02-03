@@ -65,7 +65,7 @@ def main():
 	parser.add_argument("--batch_size", type=int, help="number of transitions sampled from memory during learning", default=32)
 	# must set to custom in order to specify custom architecture
 	parser.add_argument("--network_architecture", type=str, help="name of prespecified network architecture", 
-		choices=("deepmind_nips", "deepmind_nature, custom"), default="deepmind_nature")
+		choices=("deepmind_nips", "deepmind_nature", "custom"), default="deepmind_nature")
 	parser.add_argument("--recording_frequency", type=int, help="number of steps before tensorboard recording", default=50000)
 
 	parser.add_argument("--saving_threshold", type=int, help="min score threshold for saving model.", default=0)
