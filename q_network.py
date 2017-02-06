@@ -28,9 +28,11 @@ class QNetwork():
 		self.normalized_observation = self.observation / 255.0
 		self.normalized_next_observation = self.next_observation / 255.0
 
-		self.real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="real_discounted_reward")
-		self.min_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="min_real_discounted_reward")
-		self.max_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="max_real_discounted_reward")
+
+		self.max_ls = tf.placeholder(tf.float32, shape=[None], name="max_ls")
+		#self.real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="real_discounted_reward")
+		#self.min_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="min_real_discounted_reward")
+		#self.max_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="max_real_discounted_reward")
 
 		num_conv_layers = len(args.conv_kernel_shapes)
 		assert(num_conv_layers == len(args.conv_strides))
@@ -221,9 +223,13 @@ class QNetwork():
 		Args:
 			observation: the observation
 		'''
+		#print np.squeeze(self.sess.run(self.target_q_layer, feed_dict={self.observation:obs}))
+		#obs = obs.append(obs[0], axis = 0)
 
 		return np.squeeze(self.sess.run(self.policy_q_layer, feed_dict={self.observation:obs}))
 
+	def target_inference(self, obs):
+		return np.squeeze(self.sess.run(self.target_q_layer, feed_dict={self.observation:obs}))
 
 	def build_loss(self, error_clip, num_actions, double_dqn):
 		''' build loss graph '''
@@ -247,7 +253,7 @@ class QNetwork():
 
 			penalty_coeff = 4
 
-			#maxConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(self.max_real_discounted_reward - predictions)))
+			maxConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(self.max_ls - predictions)))
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
 			minConstraintError = 0
 
@@ -259,10 +265,10 @@ class QNetwork():
 			#else:
 			#	errors = (0.5 * tf.square(difference))
 
-			#return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
-			return tf.reduce_sum(diff_error)
+			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
+			#return tf.reduce_sum(diff_error)
 
-	def train(self, o1, a, r, o2, t):
+	def train(self, o1, a, r, o2, t, l):
 		''' train network on batch of experiences
 
 		Args:
@@ -272,8 +278,11 @@ class QNetwork():
 			o2: succeeding observations
 		'''
 
-		loss = self.sess.run([self.train_op, self.loss], 
-			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t})[1]
+		temp = self.sess.run([self.train_op, self.loss], 
+			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l})
+		#print ('hi')
+		#print (temp)
+		loss = temp[1]
 
 		self.total_updates += 1
 		if self.total_updates % self.target_update_frequency == 0:

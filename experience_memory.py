@@ -20,11 +20,12 @@ class ExperienceMemory:
 		self.screen_dims = args.screen_dims
 
 		# initialize dataset
-		self.observations = np.empty((self.capacity, self.screen_dims[0], self.screen_dims[1]), dtype=np.uint8)
-		self.actions = np.empty(self.capacity, dtype=np.uint8)
-		self.rewards = np.empty(self.capacity, dtype=np.integer)
-		self.terminals = np.empty(self.capacity, dtype=np.bool)
-		self.real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
+		self.observations = np.zeros((self.capacity, self.screen_dims[0], self.screen_dims[1]), dtype=np.uint8)
+		self.actions = np.zeros(self.capacity, dtype=np.uint8)
+		self.rewards = np.zeros(self.capacity, dtype=np.integer)
+		self.terminals = np.zeros(self.capacity, dtype=np.bool)
+		self.real_discounted_reward = np.zeros(self.capacity, dtype=np.float32)
+		self.is_processed = np.zeros(self.capacity, dtype=np.bool)
 
 		#self.min_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
 		#self.max_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
@@ -32,6 +33,8 @@ class ExperienceMemory:
 		self.size = 0
 		self.current = 0
 		self.episode_length = 0
+
+		self.discount_factor = 0.99
 
 
 	def add(self, obs, act, reward, terminal):
@@ -60,25 +63,28 @@ class ExperienceMemory:
 		if terminal:
 			self.calc_real_discounted_reward(0)
 
-	def calc_real_discounted_reward(self, end_reward):
+	def calc_real_discounted_reward(self, end_reward = 0):
 		#TODO
-		discount_factor = 0.99
 		last = end_reward
 		#maxReward = end_reward
 		#minReward = end_reward
 		for i in range(self.episode_length):
 			current_index = (self.current - 1 - i) % self.capacity
-			self.real_discounted_reward[current_index] = self.rewards[current_index] + discount_factor*last
+			self.real_discounted_reward[current_index] = self.rewards[current_index] + self.discount_factor*last
 			last = self.real_discounted_reward[current_index]
+			self.is_processed = True
 			#maxReward = max(maxReward, last)
 			#minReward = min(minReward, last)
 
-		for i in range(self.episode_length):
-			current_index = (self.current - 1 - i) % self.capacity
+		#for i in range(self.episode_length):
+		#	current_index = (self.current - 1 - i) % self.capacity
 			#self.min_real_discounted_reward[current_index] = minReward
 			#self.max_real_discounted_reward[current_index] = maxReward
 
-		self.episode_length = 0;
+		self.episode_length = 0
+
+	def reset_episode_length(self):
+		self.episode_length = 0
 
 
 	def get_state(self, indices):
@@ -103,8 +109,9 @@ class ExperienceMemory:
 		return self.get_state([(self.current-1)%self.capacity])
 
 
-	def get_batch(self):
+	def get_batch(self, state, inference_function = None):
 		''' Sample minibatch of experiences for training '''
+		K = 4
 
 		samples = [] # indices of the end of each sample
 
@@ -120,6 +127,42 @@ class ExperienceMemory:
 				continue
 			else:
 				samples.append(index)
+
+		max_Ls = np.zeros(len(samples))
+
+		l_index = 0
+
+		for index in samples:
+			max_L = float("-inf")
+
+			if inference_function:
+				indexes = []
+				coeff = []
+				#real_discounted_reward = []
+				reward = 0
+				i=0
+				while i<K+2:
+					current = (index + i)%self.capacity
+					if not self.is_processed[current] or self.terminals[current]:
+						break
+					if i>=2:
+						indexes.append(current)
+
+				estimates = inference_function(self.get_state(indexes))
+				assert len(Q) == len(indexes)
+				for i in range(indexes):
+					reward += Math.exp(self.discount_factor, i) * self.rewards[index[i]]
+					L = reward + Math.exp(self.discount_factor, i + 1) * numpy.amax(estimates[i])
+					max_L = max(max_L, L)
+
+			max_Ls[l_index] = max_L
+			l_index += 1
+
+
+
+
+
+
 		# endwhile
 		samples = np.asarray(samples)
 
@@ -131,4 +174,5 @@ class ExperienceMemory:
 		t = self.terminals[samples].astype(int)
 		#min_dr = self.min_real_discounted_reward[samples]
 		#max_dr = self.max_real_discounted_reward[samples]
-		return [o1, a, r, o2, t]
+
+		return [o1, a, r, o2, t, max_Ls]

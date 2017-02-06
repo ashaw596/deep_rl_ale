@@ -41,10 +41,13 @@ class DQNAgent():
 
 	def checkGameOver(self):
 		if self.emulator.isGameOver():
+			self.memory.calc_real_discounted_reward(0)
 			initial_state = self.emulator.reset()
 			for experience in initial_state:
 				self.memory.add(experience[0], experience[1], experience[2], experience[3])
 			self.train_stats.add_game()
+			return True
+		return False
 
 
 	def run_random_exploration(self):
@@ -66,33 +69,40 @@ class DQNAgent():
 
 	def run_epoch(self, steps, epoch):
 
-		for step in tqdm(range(steps)):
-			#if step%1000==0:
-			#	print step
+		with tqdm(total=steps) as pbar:
+			step = 0
+			terminal = False
+			#TODO: This will infinite loop if game never ends
+			while (step < steps or not terminal):
+				#if step%1000==0:
+				#	print step
 
-			state, action, reward, terminal, raw_reward = self.emulator.run_step(self.choose_action())
-			self.memory.add(state, action, reward, terminal)
-			self.train_stats.add_reward(raw_reward)
-			self.checkGameOver()
+				state, action, reward, terminal, raw_reward = self.emulator.run_step(self.choose_action())
+				self.memory.add(state, action, reward, terminal)
+				self.train_stats.add_reward(raw_reward)
+				self.checkGameOver()
 
-			# training
-			if self.total_steps % self.training_frequency == 0:
-				states, actions, rewards, next_states, terminals = self.memory.get_batch()
-				loss = self.network.train(states, actions, rewards, next_states, terminals)
-				self.train_stats.add_loss(loss)
+				# training
+				if self.total_steps % self.training_frequency == 0:
+					states, actions, rewards, next_states, terminals, max_ls = self.memory.get_batch(lambda s: self.network.target_inference(s))
+					loss = self.network.train(states, actions, rewards, next_states, terminals, max_ls)
+					self.train_stats.add_loss(loss)
 
-			self.total_steps += 1
+				self.total_steps += 1
 
-			if self.total_steps < self.final_exploration_frame:
-				self.exploration_rate -= (self.exploration_rate - self.final_exploration_rate) / (self.final_exploration_frame - self.total_steps)
+				if self.total_steps < self.final_exploration_frame:
+					self.exploration_rate -= (self.exploration_rate - self.final_exploration_rate) / (self.final_exploration_frame - self.total_steps)
 
-			if self.total_steps % self.recording_frequency == 0:
-				self.train_stats.record(self.total_steps)
-				self.network.record_params(self.total_steps)
+				if self.total_steps % self.recording_frequency == 0:
+					self.train_stats.record(self.total_steps)
+					self.network.record_params(self.total_steps)
 
-			if step == steps-1 and not terminal:
-				q_values = self.network.inference(self.memory.get_current_state())
-				self.memory.calc_real_discounted_reward(np.amax(q_values))
+				step += 1
+				#print terminal
+				#print (step)
+				#print (steps)
+				pbar.update(1)
+		self.memory.reset_episode_length()
 
 	def test_step(self, observation):
 
