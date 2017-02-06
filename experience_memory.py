@@ -131,18 +131,18 @@ class ExperienceMemory:
 
 		max_Ls = np.zeros(len(samples))
 
-		l_index = 0
 
+		indexes = []
+		startI = []
+		endI = []
 		for index in samples:
-			max_L = float("-inf")
 
 			#print "index" + str(index)
 
 			if inference_function:
 				#print"inference_function"
-				indexes = []
-				coeff = []
 				#real_discounted_reward = []
+				startI.append(len(indexes))
 				reward = 0
 				i=0
 				while i<K+1:
@@ -152,16 +152,19 @@ class ExperienceMemory:
 					if i>=1:
 						indexes.append(current)
 					i+=1
+				endI.append(len(indexes))
 
-				estimates = inference_function(self.get_state(indexes))
-				#print estimates.shape
-				#print indexes
-				assert len(estimates) == len(indexes)
-				for i in range(len(indexes)):
-					#print i
-					reward += math.pow(self.discount_factor, i) * self.rewards[indexes[i]]
-					L = reward + math.pow(self.discount_factor, i + 1) * np.amax(estimates[i])
-					max_L = max(max_L, L)
+		estimates = inference_function(self.get_state(indexes))
+
+		
+		l_index = 0
+		for start,end in zip(startI,endI):
+			max_L = float("-inf")
+			assert end>=start
+			for i, index in enumerate(range(start,end)):
+				reward += math.pow(self.discount_factor, i) * self.rewards[indexes[i]]
+				L = reward + math.pow(self.discount_factor, i + 1) * np.amax(estimates[index])
+				max_L = max(max_L, L)
 
 			max_Ls[l_index] = max_L
 			l_index += 1
