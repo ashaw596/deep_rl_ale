@@ -21,6 +21,7 @@ class DQNAgent():
 		self.final_exploration_frame = args.final_exploration_frame
 		self.test_exploration_rate = args.test_exploration_rate
 		self.recording_frequency = args.recording_frequency
+		self.enable_constraints = args.enable_constraints
 
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
@@ -84,7 +85,10 @@ class DQNAgent():
 
 				# training
 				if self.total_steps % self.training_frequency == 0:
-					states, actions, rewards, next_states, terminals, max_ls = self.memory.get_batch(lambda s: self.network.target_inference(s))
+					inference_function = None
+					if self.enable_constraints:
+						inference_function = lambda s: self.network.target_inference(s)
+					states, actions, rewards, next_states, terminals, max_ls = self.memory.get_batch(inference_function)
 					loss = self.network.train(states, actions, rewards, next_states, terminals, max_ls)
 					self.train_stats.add_loss(loss)
 
