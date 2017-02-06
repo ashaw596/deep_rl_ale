@@ -248,16 +248,23 @@ class QNetwork():
 
 			targets = tf.stop_gradient(self.rewards + (self.discount_factor * max_action_values * (1 - self.terminals)))
 
-			difference = predictions - targets
-			diff_error = tf.square(difference)
+			difference = tf.abs(predictions - targets)
+			#diff_error = tf.square(difference)
 
 			penalty_coeff = 4
 
-			maxConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(self.max_ls - predictions)))
+			maxConstraintDiff = tf.stop_gradient(tf.nn.relu(self.max_ls - predictions))
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
 			minConstraintError = 0
 
 			#TODO change
+			if error_clip >= 0:
+				quadratic_part = tf.clip_by_value(maxConstraintDiff, 0.0, error_clip)
+				linear_part = maxConstraintDiff - quadratic_part
+				maxConstraintError = (penalty_coeff * tf.square(quadratic_part)) + (error_clip * linear_part)
+			else:
+				maxConstraintError = (penalty_coeff * tf.square(maxConstraintDiff))
+
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(difference, 0.0, error_clip)
 				linear_part = difference - quadratic_part
