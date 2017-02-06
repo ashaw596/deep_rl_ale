@@ -5,6 +5,7 @@ It stores experience samples and samples minibatches for training.
 
 import numpy as np
 import random
+import math
 
 
 class ExperienceMemory:
@@ -72,7 +73,7 @@ class ExperienceMemory:
 			current_index = (self.current - 1 - i) % self.capacity
 			self.real_discounted_reward[current_index] = self.rewards[current_index] + self.discount_factor*last
 			last = self.real_discounted_reward[current_index]
-			self.is_processed = True
+			self.is_processed[current_index] = True
 			#maxReward = max(maxReward, last)
 			#minReward = min(minReward, last)
 
@@ -109,7 +110,7 @@ class ExperienceMemory:
 		return self.get_state([(self.current-1)%self.capacity])
 
 
-	def get_batch(self, state, inference_function = None):
+	def get_batch(self, inference_function = None):
 		''' Sample minibatch of experiences for training '''
 		K = 4
 
@@ -118,12 +119,12 @@ class ExperienceMemory:
 		while len(samples) < self.batch_size:
 
 			if self.size < self.capacity:  # make this better
-				index = random.randrange(self.history_length - 1, self.current)
+				index = random.randrange(self.history_length, self.current)
 			else:
 				# make sure state from index doesn't overlap with current's gap
-				index = (self.current + random.randrange(self.history_length - 1, self.size)) % self.capacity
+				index = (self.current + random.randrange(self.history_length, self.size)) % self.capacity
 			# make sure no terminal observations are in any state other than the last state
-			if self.terminals[(index - self.history_length + 1):index].any():
+			if self.terminals[(index - self.history_length):index].any():
 				continue
 			else:
 				samples.append(index)
@@ -135,24 +136,31 @@ class ExperienceMemory:
 		for index in samples:
 			max_L = float("-inf")
 
+			#print "index" + str(index)
+
 			if inference_function:
+				#print"inference_function"
 				indexes = []
 				coeff = []
 				#real_discounted_reward = []
 				reward = 0
 				i=0
-				while i<K+2:
+				while i<K+1:
 					current = (index + i)%self.capacity
 					if not self.is_processed[current] or self.terminals[current]:
 						break
-					if i>=2:
+					if i>=1:
 						indexes.append(current)
+					i+=1
 
 				estimates = inference_function(self.get_state(indexes))
-				assert len(Q) == len(indexes)
-				for i in range(indexes):
-					reward += Math.exp(self.discount_factor, i) * self.rewards[index[i]]
-					L = reward + Math.exp(self.discount_factor, i + 1) * numpy.amax(estimates[i])
+				#print estimates.shape
+				#print indexes
+				assert len(estimates) == len(indexes)
+				for i in range(len(indexes)):
+					#print i
+					reward += math.pow(self.discount_factor, i) * self.rewards[indexes[i]]
+					L = reward + math.pow(self.discount_factor, i + 1) * np.amax(estimates[i])
 					max_L = max(max_L, L)
 
 			max_Ls[l_index] = max_L
@@ -161,13 +169,11 @@ class ExperienceMemory:
 
 
 
-
-
 		# endwhile
 		samples = np.asarray(samples)
 
 		# create batch
-		o1 = self.get_state(samples)
+		o1 = self.get_state((samples - 1) % self.capacity)
 		a = np.eye(self.num_actions)[self.actions[samples]] # convert actions to one-hot matrix
 		r = self.rewards[samples]
 		o2 = self.get_state(samples)

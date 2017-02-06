@@ -229,7 +229,7 @@ class QNetwork():
 		return np.squeeze(self.sess.run(self.policy_q_layer, feed_dict={self.observation:obs}))
 
 	def target_inference(self, obs):
-		return np.squeeze(self.sess.run(self.target_q_layer, feed_dict={self.observation:obs}))
+		return self.sess.run(self.target_q_layer, feed_dict={self.next_observation:obs})
 
 	def build_loss(self, error_clip, num_actions, double_dqn):
 		''' build loss graph '''
