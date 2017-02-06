@@ -258,15 +258,15 @@ class QNetwork():
 			minConstraintError = 0
 
 			#TODO change
-			#if error_clip >= 0:
-			#	quadratic_part = tf.clip_by_value(difference, 0.0, error_clip)
-			#	linear_part = difference - quadratic_part
-			#	errors = (0.5 * tf.square(quadratic_part)) + (error_clip * linear_part)
-			#else:
-			#	errors = (0.5 * tf.square(difference))
+			if error_clip >= 0:
+				quadratic_part = tf.clip_by_value(difference, 0.0, error_clip)
+				linear_part = difference - quadratic_part
+				diff_error = (0.5 * tf.square(quadratic_part)) + (error_clip * linear_part)
+			else:
+				diff_error = (0.5 * tf.square(difference))
 
-			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
-			#return tf.reduce_sum(diff_error)
+			#return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
+			return tf.reduce_sum(diff_error)
 
 	def train(self, o1, a, r, o2, t, l):
 		''' train network on batch of experiences
