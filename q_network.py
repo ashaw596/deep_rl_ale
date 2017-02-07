@@ -272,8 +272,8 @@ class QNetwork():
 			else:
 				diff_error = (0.5 * tf.square(difference))
 
-			#return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
-			return tf.reduce_sum(diff_error)
+			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
+			#return tf.reduce_sum(diff_error)
 
 	def train(self, o1, a, r, o2, t, l):
 		''' train network on batch of experiences
