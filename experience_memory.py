@@ -173,6 +173,7 @@ class ExperienceMemory:
 
 		min_us = np.full(len(samples), float("inf"), dtype=np.float32)
 
+
 		if inference_function:
 			indexes = []
 			startI = []
@@ -197,7 +198,7 @@ class ExperienceMemory:
 			l_index = 0
 			for start,end in zip(startI,endI):
 				reward = 0
-				min_u = float("-inf")
+				min_u = float("inf")
 				assert end>=start
 				for i, index in enumerate(range(start,end)):
 					reward += math.pow(self.discount_factor, -(i+1)) * self.rewards[indexes[i]]
