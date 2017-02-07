@@ -30,6 +30,7 @@ class QNetwork():
 
 
 		self.max_ls = tf.placeholder(tf.float32, shape=[None], name="max_ls")
+		self.min_us = tf.placeholder(tf.float32, shape=[None], name="min_us")
 		#self.real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="real_discounted_reward")
 		#self.min_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="min_real_discounted_reward")
 		#self.max_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="max_real_discounted_reward")
@@ -254,10 +255,18 @@ class QNetwork():
 			penalty_coeff = 4
 
 			maxConstraintDiff = tf.stop_gradient(tf.nn.relu(self.max_ls - predictions))
+			minConstraintDiff = tf.stop_gradient(tf.nn.relu(predictions - self.min_us))
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
-			minConstraintError = 0
+			#minConstraintError = 0
 
 			#TODO change
+			if error_clip >= 0:
+				quadratic_part = tf.clip_by_value(minConstraintDiff, 0.0, error_clip)
+				linear_part = minConstraintDiff - quadratic_part
+				minConstraintError = (penalty_coeff * tf.square(quadratic_part)) + (error_clip * linear_part)
+			else:
+				minConstraintError = (penalty_coeff * tf.square(minConstraintDiff))
+
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(maxConstraintDiff, 0.0, error_clip)
 				linear_part = maxConstraintDiff - quadratic_part
@@ -275,7 +284,7 @@ class QNetwork():
 			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
 			#return tf.reduce_sum(diff_error)
 
-	def train(self, o1, a, r, o2, t, l):
+	def train(self, o1, a, r, o2, t, l, u):
 		''' train network on batch of experiences
 
 		Args:
@@ -286,7 +295,7 @@ class QNetwork():
 		'''
 
 		temp = self.sess.run([self.train_op, self.loss], 
-			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l})
+			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l, self.min_us:u})
 		#print ('hi')
 		#print (temp)
 		loss = temp[1]

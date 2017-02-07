@@ -88,8 +88,8 @@ class DQNAgent():
 					inference_function = None
 					if self.enable_constraints:
 						inference_function = lambda s: self.network.target_inference(s)
-					states, actions, rewards, next_states, terminals, max_ls = self.memory.get_batch(inference_function)
-					loss = self.network.train(states, actions, rewards, next_states, terminals, max_ls)
+					states, actions, rewards, next_states, terminals, max_ls, min_us = self.memory.get_batch(inference_function)
+					loss = self.network.train(states, actions, rewards, next_states, terminals, max_ls, min_us)
 					self.train_stats.add_loss(loss)
 
 				self.total_steps += 1

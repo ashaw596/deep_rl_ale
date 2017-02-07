@@ -171,6 +171,42 @@ class ExperienceMemory:
 				l_index += 1
 
 
+		min_us = np.full(len(samples), float("inf"), dtype=np.float32)
+
+		if inference_function:
+			indexes = []
+			startI = []
+			endI = []
+			estimates = None
+		
+			for index in samples:
+				startI.append(len(indexes))
+				i=0
+				while i<K+1:
+					current = (index - i)%self.capacity
+					if not self.is_processed[current] or self.terminals[current]:
+						break
+					if i>=1:
+						indexes.append(current)
+					i+=1
+				endI.append(len(indexes))
+
+			estimates = inference_function(self.get_state(indexes))
+
+			
+			l_index = 0
+			for start,end in zip(startI,endI):
+				reward = 0
+				min_u = float("-inf")
+				assert end>=start
+				for i, index in enumerate(range(start,end)):
+					reward += math.pow(self.discount_factor, -(i+1)) * self.rewards[indexes[i]]
+					u = math.pow(self.discount_factor, -(i+1)) * estimates[index][self.actions[indexes[i]]] - reward
+					min_u = min(min_u, u)
+
+				min_us[l_index] = min_u
+				l_index += 1
+
 
 		# endwhile
 		samples = np.asarray(samples)
@@ -184,4 +220,4 @@ class ExperienceMemory:
 		#min_dr = self.min_real_discounted_reward[samples]
 		#max_dr = self.max_real_discounted_reward[samples]
 
-		return [o1, a, r, o2, t, max_Ls]
+		return [o1, a, r, o2, t, max_Ls, min_us]
