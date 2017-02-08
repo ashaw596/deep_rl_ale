@@ -53,19 +53,26 @@ class DQNAgent():
 
 	def run_random_exploration(self):
 		print("Running random Exploration")
-		for step in tqdm(range(self.random_exploration_length)):
-			#print("step:" + str(step))
-			state, action, reward, terminal, raw_reward = self.emulator.run_step(random.randrange(self.num_actions))
-			self.train_stats.add_reward(raw_reward)
-			self.memory.add(state, action, reward, terminal)
-			self.checkGameOver()
-			self.total_steps += 1
-			if (self.total_steps % self.recording_frequency == 0):
-				self.train_stats.record(self.total_steps)
+		with tqdm(total=steps) as pbar:
+			step = 0
+			terminal = False
+			
+			while step<self.random_exploration_length or not terminal:
+			
+				#print("step:" + str(step))
+				state, action, reward, terminal, raw_reward = self.emulator.run_step(random.randrange(self.num_actions))
+				self.train_stats.add_reward(raw_reward)
+				self.memory.add(state, action, reward, terminal)
+				self.checkGameOver()
+				self.total_steps += 1
+				if (self.total_steps % self.recording_frequency == 0):
+					self.train_stats.record(self.total_steps)
 
-			if step == self.random_exploration_length-1 and not terminal:
-				q_values = self.network.inference(self.memory.get_current_state())
-				self.memory.calc_real_discounted_reward(np.amax(q_values))
+				step += 1
+				pbar.update(1)
+				#if step == self.random_exploration_length-1 and not terminal:
+				#	q_values = self.network.inference(self.memory.get_current_state())
+				#	self.memory.calc_real_discounted_reward(np.amax(q_values))
 
 
 	def run_epoch(self, steps, epoch):
