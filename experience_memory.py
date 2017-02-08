@@ -164,11 +164,13 @@ class ExperienceMemory:
 				assert end>=start
 				for i, index in enumerate(range(start,end)):
 					reward += math.pow(self.discount_factor, i + 1) * self.rewards[indexes[i]]
-					L = reward + math.pow(self.discount_factor, i + 2) * max(np.amax(estimates[index]), self.real_discounted_reward[indexes[i]])
+					L = reward + math.pow(self.discount_factor, i + 2) * np.amax(estimates[index])
 					max_L = max(max_L, L)
 
-				max_Ls[l_index] = max_L
+				max_Ls[l_index] = max(max_L, self.real_discounted_reward[samples[l_index]])
 				l_index += 1
+
+
 
 
 		min_us = np.full(len(samples), float("inf"), dtype=np.float32)
