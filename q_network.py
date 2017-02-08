@@ -254,8 +254,8 @@ class QNetwork():
 
 			penalty_coeff = 4
 
-			maxConstraintDiff = tf.stop_gradient(tf.nn.relu(self.max_ls - predictions))
-			minConstraintDiff = tf.stop_gradient(tf.nn.relu(predictions - self.min_us))
+			maxConstraintDiff = tf.nn.relu(self.max_ls - predictions)
+			minConstraintDiff = tf.nn.relu(predictions - self.min_us)
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
 			#minConstraintError = 0
 
