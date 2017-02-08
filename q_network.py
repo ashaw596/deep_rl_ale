@@ -263,14 +263,14 @@ class QNetwork():
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(minConstraintDiff, 0.0, error_clip)
 				linear_part = minConstraintDiff - quadratic_part
-				minConstraintError = (penalty_coeff * tf.square(quadratic_part)) + (error_clip * linear_part)
+				minConstraintError = penalty_coeff * (0.5 * tf.square(quadratic_part) + (error_clip * linear_part))
 			else:
-				minConstraintError = (penalty_coeff * tf.square(minConstraintDiff))
+				minConstraintError = penalty_coeff * (0.5 * tf.square(minConstraintDiff))
 
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(maxConstraintDiff, 0.0, error_clip)
 				linear_part = maxConstraintDiff - quadratic_part
-				maxConstraintError = penalty_coeff * (0.5 * tf.square(quadratic_part)) + (error_clip * linear_part)
+				maxConstraintError = penalty_coeff * (0.5 * tf.square(quadratic_part) + (error_clip * linear_part))
 			else:
 				maxConstraintError = penalty_coeff * (0.5 * tf.square(maxConstraintDiff))
 
