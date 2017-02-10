@@ -53,7 +53,7 @@ class DQNAgent():
 
 	def run_random_exploration(self):
 		print("Running random Exploration")
-		with tqdm(total=steps) as pbar:
+		with tqdm(total=self.random_exploration_length) as pbar:
 			step = 0
 			terminal = False
 			
