@@ -254,8 +254,8 @@ class QNetwork():
 
 			penalty_coeff = 4
 
-			maxConstraintDiff = tf.stop_gradient(tf.nn.relu(self.max_ls - predictions))
-			minConstraintDiff = tf.stop_gradient(tf.nn.relu(predictions - self.min_us))
+			maxConstraintDiff = tf.nn.relu(self.max_ls - predictions)
+			minConstraintDiff = tf.nn.relu(predictions - self.min_us)
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
 			#minConstraintError = 0
 
@@ -263,16 +263,16 @@ class QNetwork():
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(minConstraintDiff, 0.0, error_clip)
 				linear_part = minConstraintDiff - quadratic_part
-				minConstraintError = (penalty_coeff * tf.square(quadratic_part)) + (error_clip * linear_part)
+				minConstraintError = penalty_coeff * (0.5 * tf.square(quadratic_part) + (error_clip * linear_part))
 			else:
-				minConstraintError = (penalty_coeff * tf.square(minConstraintDiff))
+				minConstraintError = penalty_coeff * (0.5 * tf.square(minConstraintDiff))
 
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(maxConstraintDiff, 0.0, error_clip)
 				linear_part = maxConstraintDiff - quadratic_part
-				maxConstraintError = (penalty_coeff * tf.square(quadratic_part)) + (error_clip * linear_part)
+				maxConstraintError = penalty_coeff * (0.5 * tf.square(quadratic_part) + (error_clip * linear_part))
 			else:
-				maxConstraintError = (penalty_coeff * tf.square(maxConstraintDiff))
+				maxConstraintError = penalty_coeff * (0.5 * tf.square(maxConstraintDiff))
 
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(difference, 0.0, error_clip)
