@@ -6,142 +6,149 @@ import tensorflow.contrib.slim as slim
 
 
 class QNetwork():
+	def __init__(self, args, num_actions, scope_name = "global"):
+		with tf.variable_scope(scope_name) as scope:
+			''' Build tensorflow graph for deep q network '''
 
-	def __init__(self, args, num_actions):
-		''' Build tensorflow graph for deep q network '''
+			print("Initializing Q-Network")
 
-		print("Initializing Q-Network")
+			self.discount_factor = args.discount_factor
+			self.target_update_frequency = args.target_update_frequency
+			self.total_updates = 0
+			self.path = '../saved_models/' + args.game + '/' + args.agent_type + '/' + args.agent_name
+			if not os.path.exists(self.path):
+				os.makedirs(self.path)
+			self.name = args.agent_name
 
-		self.discount_factor = args.discount_factor
-		self.target_update_frequency = args.target_update_frequency
-		self.total_updates = 0
-		self.path = '../saved_models/' + args.game + '/' + args.agent_type + '/' + args.agent_name
-		if not os.path.exists(self.path):
-			os.makedirs(self.path)
-		self.name = args.agent_name
+			# input placeholders
+			self.observation = tf.placeholder(tf.float32, shape=[None, args.screen_dims[0], args.screen_dims[1], args.history_length], name="observation")
+			self.actions = tf.placeholder(tf.float32, shape=[None, num_actions], name="actions") # one-hot matrix because tf.gather() doesn't support multidimensional indexing yet
+			self.rewards = tf.placeholder(tf.float32, shape=[None], name="rewards")
+			self.next_observation = tf.placeholder(tf.float32, shape=[None, args.screen_dims[0], args.screen_dims[1], args.history_length], name="next_observation")
+			self.terminals = tf.placeholder(tf.float32, shape=[None], name="terminals")
+			self.normalized_observation = self.observation / 255.0
+			self.normalized_next_observation = self.next_observation / 255.0
 
-		# input placeholders
-		self.observation = tf.placeholder(tf.float32, shape=[None, args.screen_dims[0], args.screen_dims[1], args.history_length], name="observation")
-		self.actions = tf.placeholder(tf.float32, shape=[None, num_actions], name="actions") # one-hot matrix because tf.gather() doesn't support multidimensional indexing yet
-		self.rewards = tf.placeholder(tf.float32, shape=[None], name="rewards")
-		self.next_observation = tf.placeholder(tf.float32, shape=[None, args.screen_dims[0], args.screen_dims[1], args.history_length], name="next_observation")
-		self.terminals = tf.placeholder(tf.float32, shape=[None], name="terminals")
-		self.normalized_observation = self.observation / 255.0
-		self.normalized_next_observation = self.next_observation / 255.0
 
-		num_conv_layers = len(args.conv_kernel_shapes)
-		assert(num_conv_layers == len(args.conv_strides))
-		num_dense_layers = len(args.dense_layer_shapes)
+			self.max_ls = tf.placeholder(tf.float32, shape=[None], name="max_ls")
+			self.min_us = tf.placeholder(tf.float32, shape=[None], name="min_us")
+			#self.real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="real_discounted_reward")
+			#self.min_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="min_real_discounted_reward")
+			#self.max_real_discounted_reward = tf.placeholder(tf.float32, shape=[None], name="max_real_discounted_reward")
 
-		last_policy_layer = None
-		last_target_layer = None
-		self.update_target = []
-		self.policy_network_params = []
-		self.param_names = []
+			num_conv_layers = len(args.conv_kernel_shapes)
+			assert(num_conv_layers == len(args.conv_strides))
+			num_dense_layers = len(args.dense_layer_shapes)
 
-		# initialize convolutional layers
-		for layer in range(num_conv_layers):
-			policy_input = None
-			target_input = None
-			if layer == 0:
-				policy_input = self.normalized_observation
-				target_input = self.normalized_next_observation
-			else:
-				policy_input = last_policy_layer
-				target_input = last_target_layer
-			#last_layers = self.conv_relu(policy_input, target_input, 
-			#	args.conv_kernel_shapes[layer], args.conv_strides[layer], layer)
-			#last_policy_layer = last_layers[0]
-			#last_target_layer = last_layers[1]
-			
-			last_policy_layer = slim.conv2d(activation_fn=tf.nn.relu,
-				inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
-				kernel_size=args.conv_kernel_shapes[layer][:-2],
-				stride=args.conv_strides[layer][1:3],
-				padding='VALID',
+			last_policy_layer = None
+			last_target_layer = None
+			self.update_target = []
+			self.policy_network_params = []
+			self.param_names = []
+
+			# initialize convolutional layers
+			for layer in range(num_conv_layers):
+				policy_input = None
+				target_input = None
+				if layer == 0:
+					policy_input = self.normalized_observation
+					target_input = self.normalized_next_observation
+				else:
+					policy_input = last_policy_layer
+					target_input = last_target_layer
+				#last_layers = self.conv_relu(policy_input, target_input, 
+				#	args.conv_kernel_shapes[layer], args.conv_strides[layer], layer)
+				#last_policy_layer = last_layers[0]
+				#last_target_layer = last_layers[1]
+				
+				last_policy_layer = slim.conv2d(activation_fn=tf.nn.relu,
+					inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
+					kernel_size=args.conv_kernel_shapes[layer][:-2],
+					stride=args.conv_strides[layer][1:3],
+					padding='VALID',
+					trainable=True,
+					scope="policy/conv" + str(layer))
+				last_target_layer = slim.conv2d(activation_fn=tf.nn.relu,
+					inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
+					kernel_size=args.conv_kernel_shapes[layer][:-2],
+					stride=args.conv_strides[layer][1:3],
+					padding='VALID',
+					trainable=False,
+					scope="target/conv" + str(layer))
+				
+
+			# initialize fully-connected layers
+			for layer in range(num_dense_layers):
+				policy_input = None
+				target_input = None
+				if layer == 0:
+					input_size = args.dense_layer_shapes[0][0]
+					policy_input = tf.reshape(last_policy_layer, shape=[-1, input_size])
+					target_input = tf.reshape(last_target_layer, shape=[-1, input_size])
+				else:
+					policy_input = last_policy_layer
+					target_input = last_target_layer
+				last_policy_layer = slim.fully_connected(
+					policy_input, 
+					args.dense_layer_shapes[layer][1],
+					activation_fn=tf.nn.relu,
+					trainable=True,
+					scope="policy/fc" + str(layer))
+				last_target_layer = slim.fully_connected(
+					target_input, 
+					args.dense_layer_shapes[layer][1],
+					activation_fn=tf.nn.relu,
+					trainable=False,
+					scope="target/fc" + str(layer))
+
+			# initialize q_layer
+			self.policy_q_layer = slim.fully_connected(
+				last_policy_layer, 
+				num_actions,
+				activation_fn=None,
 				trainable=True,
-				scope="policy/conv" + str(layer))
-			last_target_layer = slim.conv2d(activation_fn=tf.nn.relu,
-				inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
-				kernel_size=args.conv_kernel_shapes[layer][:-2],
-				stride=args.conv_strides[layer][1:3],
-				padding='VALID',
+				scope="policy/fc" + str(num_dense_layers))
+			self.target_q_layer = slim.fully_connected(
+				last_target_layer, 
+				num_actions,
+				activation_fn=None,
 				trainable=False,
-				scope="target/conv" + str(layer))
-			
+				scope="target/fc" + str(num_dense_layers))
 
-		# initialize fully-connected layers
-		for layer in range(num_dense_layers):
-			policy_input = None
-			target_input = None
-			if layer == 0:
-				input_size = args.dense_layer_shapes[0][0]
-				policy_input = tf.reshape(last_policy_layer, shape=[-1, input_size])
-				target_input = tf.reshape(last_target_layer, shape=[-1, input_size])
+			policy_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope.name +"/policy")
+			target_vars = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, scope.name + "/target")
+			for policy_var,target_var in zip(policy_vars,target_vars):
+				self.update_target.append(target_var.assign(policy_var))
+				print (policy_var.name, target_var.name)
+			self.policy_network_params = policy_vars
+
+			self.loss = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
+
+			if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
+				self.train_op = tf.train.RMSPropOptimizer(
+					args.learning_rate, decay=args.rmsprop_decay, momentum=0.0, epsilon=args.rmsprop_epsilon).minimize(self.loss)
+			elif (args.optimizer == 'graves_rmsprop') or (args.optimizer == 'rmsprop' and args.gradient_clip > 0):
+				self.train_op = self.build_rmsprop_optimizer(args.learning_rate, args.rmsprop_decay, args.rmsprop_epsilon, args.gradient_clip, args.optimizer)
+
+			self.saver = tf.train.Saver(policy_vars)
+
+			if not args.watch:
+				param_hists = [tf.histogram_summary(param.name, param) for param in self.policy_network_params]
+				self.param_summaries = tf.merge_summary(param_hists)
+
+			# start tf session
+			gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.666666)  # avoid using all vram for GTX 970
+			self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
+
+			if args.watch:
+				print("Loading Saved Network...")
+				load_path = tf.train.latest_checkpoint(self.path)
+				self.saver.restore(self.sess, load_path)
+				print("Network Loaded")		
 			else:
-				policy_input = last_policy_layer
-				target_input = last_target_layer
-			last_policy_layer = slim.fully_connected(
-				policy_input, 
-				args.dense_layer_shapes[layer][1],
-				activation_fn=tf.nn.relu,
-				trainable=True,
-				scope="policy/fc" + str(layer))
-			last_target_layer = slim.fully_connected(
-				target_input, 
-				args.dense_layer_shapes[layer][1],
-				activation_fn=tf.nn.relu,
-				trainable=False,
-				scope="target/fc" + str(layer))
-
-		# initialize q_layer
-		self.policy_q_layer = slim.fully_connected(
-			last_policy_layer, 
-			num_actions,
-			activation_fn=None,
-			trainable=True,
-			scope="policy/fc" + str(num_dense_layers))
-		self.target_q_layer = slim.fully_connected(
-			last_target_layer, 
-			num_actions,
-			activation_fn=None,
-			trainable=False,
-			scope="target/fc" + str(num_dense_layers))
-
-		policy_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "policy")
-		target_vars = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, "target")
-		for policy_var,target_var in zip(policy_vars,target_vars):
-			self.update_target.append(target_var.assign(policy_var))
-			#print (policy_var.name, target_var.name)
-		self.policy_network_params = policy_vars
-
-		self.loss = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
-
-		if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
-			self.train_op = tf.train.RMSPropOptimizer(
-				args.learning_rate, decay=args.rmsprop_decay, momentum=0.0, epsilon=args.rmsprop_epsilon).minimize(self.loss)
-		elif (args.optimizer == 'graves_rmsprop') or (args.optimizer == 'rmsprop' and args.gradient_clip > 0):
-			self.train_op = self.build_rmsprop_optimizer(args.learning_rate, args.rmsprop_decay, args.rmsprop_epsilon, args.gradient_clip, args.optimizer)
-
-		self.saver = tf.train.Saver(policy_vars)
-
-		if not args.watch:
-			param_hists = [tf.histogram_summary(param.name, param) for param in self.policy_network_params]
-			self.param_summaries = tf.merge_summary(param_hists)
-
-		# start tf session
-		gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.666666)  # avoid using all vram for GTX 970
-		self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options))
-
-		if args.watch:
-			print("Loading Saved Network...")
-			load_path = tf.train.latest_checkpoint(self.path)
-			self.saver.restore(self.sess, load_path)
-			print("Network Loaded")		
-		else:
-			self.sess.run(tf.initialize_all_variables())
-			print("Network Initialized")
-			self.summary_writer = tf.train.SummaryWriter('../records/' + args.game + '/' + args.agent_type + '/' + args.agent_name + '/params', self.sess.graph)
+				self.sess.run(tf.initialize_all_variables())
+				print("Network Initialized")
+				self.summary_writer = tf.train.SummaryWriter('../records/' + args.game + '/' + args.agent_type + '/' + args.agent_name + '/params', self.sess.graph)
 
 	def inference(self, obs):
 		''' Get state-action value predictions for an observation 
