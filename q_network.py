@@ -129,15 +129,14 @@ class QNetwork():
 			if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
 				policy_grads = tf.gradients(self.loss,policy_vars)
 				target_grads = tf.gradients(self.loss,target_vars)
-				policy_grads_clipped,_ = tf.clip_by_global_norm(policy_grads,40.0)
-				target_grads_clipped,_ = tf.clip_by_global_norm(target_grads,40.0)
+				grads_clipped,_ = tf.clip_by_global_norm(policy_grads+target_grads,40.0)
 
 				policy_trainer = tf.train.RMSPropOptimizer(
 					args.learning_rate, var_list=policy_vars, 
 					decay=args.rmsprop_decay, momentum=0.0, 
 					epsilon=args.rmsprop_epsilon)
 
-				self.train_op = policy_trainer.apply_gradients(zip(policy_grads_clipped+target_grads_clipped, policy_vars))
+				self.train_op = policy_trainer.apply_gradients(zip(grads_clipped, policy_vars))
 
 				#self.train_op = tf.train.RMSPropOptimizer(
 				#	args.learning_rate, decay=args.rmsprop_decay, momentum=0.0, epsilon=args.rmsprop_epsilon).compute_gradients(self.loss)
