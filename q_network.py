@@ -126,8 +126,21 @@ class QNetwork():
 			self.loss = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
 
 			if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
-				self.train_op = tf.train.RMSPropOptimizer(
-					args.learning_rate, decay=args.rmsprop_decay, momentum=0.0, epsilon=args.rmsprop_epsilon).minimize(self.loss)
+				policy_trainer = tf.train.RMSPropOptimizer(
+					args.learning_rate, var_list=target_vars, 
+					decay=args.rmsprop_decay, momentum=0.0, 
+					epsilon=args.rmsprop_epsilon)
+				policy_grads, policy_vars = policy_trainer.compute_gradients(self.loss)
+
+				target_grads, target_vars = tf.train.RMSPropOptimizer(
+					args.learning_rate, var_list=target_vars, 
+					decay=args.rmsprop_decay, momentum=0.0, 
+					epsilon=args.rmsprop_epsilon).compute_gradients(self.loss)
+
+				self.train_op = policy_trainer.apply_gradients(zip(policy_grads+target_grads, policy_vars))
+
+				#self.train_op = tf.train.RMSPropOptimizer(
+				#	args.learning_rate, decay=args.rmsprop_decay, momentum=0.0, epsilon=args.rmsprop_epsilon).compute_gradients(self.loss)
 			elif (args.optimizer == 'graves_rmsprop') or (args.optimizer == 'rmsprop' and args.gradient_clip > 0):
 				self.train_op = self.build_rmsprop_optimizer(args.learning_rate, args.rmsprop_decay, args.rmsprop_epsilon, args.gradient_clip, args.optimizer)
 
@@ -169,7 +182,7 @@ class QNetwork():
 		''' build loss graph '''
 		with tf.name_scope("loss"):
 
-			predictions = tf.reduce_max(tf.mul(self.policy_q_layer, self.actions), 1)
+			predictions = tf.reduce_sum(tf.mul(self.policy_q_layer, self.actions), 1)
 
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
@@ -180,7 +193,7 @@ class QNetwork():
 			else:
 				max_action_values = tf.reduce_max(self.target_q_layer, 1)
 
-			targets = tf.stop_gradient(self.rewards + (self.discount_factor * max_action_values * (1 - self.terminals)))
+			targets = self.rewards + (self.discount_factor * max_action_values * (1 - self.terminals))
 
 			difference = tf.abs(predictions - targets)
 			#diff_error = tf.square(difference)
@@ -283,17 +296,6 @@ class QNetwork():
 				train = optimizer.apply_gradients(zip(rms_updates, params))
 
 				return tf.group(train, tf.group(*avg_grad_updates))
-
-
-	def get_weights(self, shape, name):
-		fan_in = np.prod(shape[0:-1])
-		std = 1 / math.sqrt(fan_in)
-		return tf.Variable(tf.random_uniform(shape, minval=(-std), maxval=std), name=(name + "_weights"))
-
-	def get_biases(self, shape, name):
-		fan_in = np.prod(shape[0:-1])
-		std = 1 / math.sqrt(fan_in)
-		return tf.Variable(tf.random_uniform([shape[-1]], minval=(-std), maxval=std), name=(name + "_biases"))
 
 	def record_params(self, step):
 		summary_string = self.sess.run(self.param_summaries)
