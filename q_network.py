@@ -60,21 +60,14 @@ class QNetwork():
 				stride=args.conv_strides[layer][1:3],
 				padding='VALID',
 				trainable=True,
-				scope="policy/" + str(layer))
+				scope="policy/conv" + str(layer))
 			last_target_layer = slim.conv2d(activation_fn=tf.nn.relu,
 				inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
 				kernel_size=args.conv_kernel_shapes[layer][:-2],
 				stride=args.conv_strides[layer][1:3],
 				padding='VALID',
 				trainable=False,
-				scope="target" + str(layer))
-
-		from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "policy")
-		to_vars = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, "target")
-		for from_var,to_var in zip(from_vars,to_vars):
-			self.update_target.append(to_var.assign(from_var))
-		
-			
+				scope="target/conv" + str(layer))
 			
 
 		# initialize fully-connected layers
@@ -88,17 +81,39 @@ class QNetwork():
 			else:
 				policy_input = last_policy_layer
 				target_input = last_target_layer
-
-			last_layers = self.dense_relu(policy_input, target_input, args.dense_layer_shapes[layer], layer)
-			last_policy_layer = last_layers[0]
-			last_target_layer = last_layers[1]
-
+			last_policy_layer = slim.fully_connected(
+				policy_input, 
+				args.dense_layer_shapes[layer][1],
+				activation_fn=tf.nn.relu,
+				trainable=True,
+				scope="policy/fc" + str(layer))
+			last_target_layer = slim.fully_connected(
+				target_input, 
+				args.dense_layer_shapes[layer][1],
+				activation_fn=tf.nn.relu,
+				trainable=False,
+				scope="target/fc" + str(layer))
 
 		# initialize q_layer
-		last_layers = self.dense_linear(
-			last_policy_layer, last_target_layer, [args.dense_layer_shapes[-1][-1], num_actions])
-		self.policy_q_layer = last_layers[0]
-		self.target_q_layer = last_layers[1]
+		self.policy_q_layer = slim.fully_connected(
+			last_policy_layer, 
+			num_actions,
+			activation_fn=None,
+			trainable=True,
+			scope="policy/fc" + str(num_dense_layers))
+		self.target_q_layer = slim.fully_connected(
+			last_target_layer, 
+			num_actions,
+			activation_fn=None,
+			trainable=False,
+			scope="target/fc" + str(num_dense_layers))
+
+		policy_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "policy")
+		target_vars = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, "target")
+		for policy_var,target_var in zip(policy_vars,target_vars):
+			self.update_target.append(target_var.assign(policy_var))
+			#print (policy_var.name, target_var.name)
+		self.policy_network_params = policy_vars
 
 		self.loss = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
 
@@ -108,10 +123,10 @@ class QNetwork():
 		elif (args.optimizer == 'graves_rmsprop') or (args.optimizer == 'rmsprop' and args.gradient_clip > 0):
 			self.train_op = self.build_rmsprop_optimizer(args.learning_rate, args.rmsprop_decay, args.rmsprop_epsilon, args.gradient_clip, args.optimizer)
 
-		self.saver = tf.train.Saver(self.policy_network_params)
+		self.saver = tf.train.Saver(policy_vars)
 
 		if not args.watch:
-			param_hists = [tf.histogram_summary(name, param) for name, param in zip(self.param_names, self.policy_network_params)]
+			param_hists = [tf.histogram_summary(param.name, param) for param in self.policy_network_params]
 			self.param_summaries = tf.merge_summary(param_hists)
 
 		# start tf session
@@ -127,112 +142,6 @@ class QNetwork():
 			self.sess.run(tf.initialize_all_variables())
 			print("Network Initialized")
 			self.summary_writer = tf.train.SummaryWriter('../records/' + args.game + '/' + args.agent_type + '/' + args.agent_name + '/params', self.sess.graph)
-
-
-	def conv_relu(self, policy_input, target_input, kernel_shape, stride, layer_num):
-		''' Build a convolutional layer
-
-		Args:
-			input_layer: input to convolutional layer - must be 4d
-			target_input: input to layer of target network - must also be 4d
-			kernel_shape: tuple for filter shape: (filter_height, filter_width, in_channels, out_channels)
-			stride: tuple for stride: (1, vert_stride. horiz_stride, 1)
-		'''
-		name = 'conv' + str(layer_num + 1)
-		with tf.variable_scope(name):
-
-			# weights = tf.Variable(tf.truncated_normal(kernel_shape, stddev=0.01), name=(name + "_weights"))
-			weights = self.get_weights(kernel_shape, name)
-			# biases = tf.Variable(tf.fill([kernel_shape[-1]], 0.1), name=(name + "_biases"))
-			biases = self.get_biases(kernel_shape, name)
-
-			activation = tf.nn.relu(tf.nn.conv2d(policy_input, weights, stride, 'VALID') + biases)
-
-			target_weights = tf.Variable(weights.initialized_value(), trainable=False, name=("target_" + name + "_weights"))
-			target_biases = tf.Variable(biases.initialized_value(), trainable=False, name=("target_" + name + "_biases"))
-
-			target_activation = tf.nn.relu(tf.nn.conv2d(target_input, target_weights, stride, 'VALID') + target_biases)
-
-			self.update_target.append(target_weights.assign(weights))
-			self.update_target.append(target_biases.assign(biases))
-
-			self.policy_network_params.append(weights)
-			self.policy_network_params.append(biases)
-			self.param_names.append(name + "_weights")
-			self.param_names.append(name + "_biases")
-
-			return [activation, target_activation]
-
-
-	def dense_relu(self, policy_input, target_input, shape, layer_num):
-		''' Build a fully-connected relu layer 
-
-		Args:
-			input_layer: input to dense layer
-			target_input: input to layer of target network
-			shape: tuple for weight shape (num_input_nodes, num_layer_nodes)
-		'''
-		name = 'dense' + str(layer_num + 1)
-		with tf.variable_scope(name):
-
-			# weights = tf.Variable(tf.truncated_normal(shape, stddev=0.01), name=(name + "_weights"))
-			weights = self.get_weights(shape, name)
-			# biases = tf.Variable(tf.fill([shape[-1]], 0.1), name=(name + "_biases"))
-			biases = self.get_biases(shape, name)
-
-			activation = tf.nn.relu(tf.matmul(policy_input, weights) + biases)
-
-			target_weights = tf.Variable(weights.initialized_value(), trainable=False, name=("target_" + name + "_weights"))
-			target_biases = tf.Variable(biases.initialized_value(), trainable=False, name=("target_" + name + "_biases"))
-
-			target_activation = tf.nn.relu(tf.matmul(target_input, target_weights) + target_biases)
-
-			self.update_target.append(target_weights.assign(weights))
-			self.update_target.append(target_biases.assign(biases))
-
-			self.policy_network_params.append(weights)
-			self.policy_network_params.append(biases)
-			self.param_names.append(name + "_weights")
-			self.param_names.append(name + "_biases")
-
-			return [activation, target_activation]
-
-
-	def dense_linear(self, policy_input, target_input, shape):
-		''' Build the fully-connected linear output layer 
-
-		Args:
-			input_layer: last hidden layer
-			target_input: last hidden layer of target network
-			shape: tuple for weight shape (num_input_nodes, num_actions)
-		'''
-		name = 'q_layer'
-		with tf.variable_scope(name):
-
-			# weights = tf.Variable(tf.truncated_normal(shape, stddev=0.01), name=(name + "_weights"))
-			weights = self.get_weights(shape, name)
-			# biases = tf.Variable(tf.fill([shape[-1]], 0.1), name=(name + "_biases"))
-			biases = self.get_biases(shape, name)
-
-
-			activation = tf.matmul(policy_input, weights) + biases
-
-			target_weights = tf.Variable(weights.initialized_value(), trainable=False, name=("target_" + name + "_weights"))
-			target_biases = tf.Variable(biases.initialized_value(), trainable=False, name=("target_" + name + "_biases"))
-
-			target_activation = tf.matmul(target_input, target_weights) + target_biases
-
-			self.update_target.append(target_weights.assign(weights))
-			self.update_target.append(target_biases.assign(biases))
-
-			self.policy_network_params.append(weights)
-			self.policy_network_params.append(biases)
-			self.param_names.append(name + "_weights")
-			self.param_names.append(name + "_biases")
-
-			return [activation, target_activation]
-
-
 
 	def inference(self, obs):
 		''' Get state-action value predictions for an observation 
