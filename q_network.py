@@ -2,6 +2,7 @@ import tensorflow as tf
 import os
 import numpy as np
 import math
+import tensorflow.contrib.slim as slim
 
 
 class QNetwork():
@@ -16,7 +17,7 @@ class QNetwork():
 		self.total_updates = 0
 		self.path = '../saved_models/' + args.game + '/' + args.agent_type + '/' + args.agent_name
 		if not os.path.exists(self.path):
-   			os.makedirs(self.path)
+			os.makedirs(self.path)
 		self.name = args.agent_name
 
 		# input placeholders
@@ -55,11 +56,33 @@ class QNetwork():
 			else:
 				policy_input = last_policy_layer
 				target_input = last_target_layer
+			#last_layers = self.conv_relu(policy_input, target_input, 
+			#	args.conv_kernel_shapes[layer], args.conv_strides[layer], layer)
+			#last_policy_layer = last_layers[0]
+			#last_target_layer = last_layers[1]
+			
+			last_policy_layer = slim.conv2d(activation_fn=tf.nn.relu,
+				inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
+				kernel_size=args.conv_kernel_shapes[layer][:-2],
+				stride=args.conv_strides[layer][1:3],
+				padding='VALID',
+				trainable=True,
+				scope="policy/" + str(layer))
+			last_target_layer = slim.conv2d(activation_fn=tf.nn.relu,
+				inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
+				kernel_size=args.conv_kernel_shapes[layer][:-2],
+				stride=args.conv_strides[layer][1:3],
+				padding='VALID',
+				trainable=False,
+				scope="target" + str(layer))
 
-			last_layers = self.conv_relu(policy_input, target_input, 
-				args.conv_kernel_shapes[layer], args.conv_strides[layer], layer)
-			last_policy_layer = last_layers[0]
-			last_target_layer = last_layers[1]
+		from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "policy")
+		to_vars = tf.get_collection(tf.GraphKeys.MODEL_VARIABLES, "target")
+		for from_var,to_var in zip(from_vars,to_vars):
+			self.update_target.append(to_var.assign(from_var))
+		
+			
+			
 
 		# initialize fully-connected layers
 		for layer in range(num_dense_layers):
