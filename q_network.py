@@ -69,7 +69,7 @@ class QNetwork():
 					trainable=True,
 					scope="policy/conv" + str(layer))
 				last_target_layer = slim.conv2d(activation_fn=tf.nn.relu,
-					inputs=policy_input,num_outputs=args.conv_kernel_shapes[layer][-1],
+					inputs=target_input,num_outputs=args.conv_kernel_shapes[layer][-1],
 					kernel_size=args.conv_kernel_shapes[layer][:-2],
 					stride=args.conv_strides[layer][1:3],
 					padding='VALID',
