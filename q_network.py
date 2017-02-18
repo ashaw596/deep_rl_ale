@@ -52,8 +52,8 @@ class QNetwork():
 				policy_input = None
 				target_input = None
 				if layer == 0:
-					policy_input = self.normalized_observation
-					target_input = self.normalized_next_observation
+					policy_input = self.normalized_next_observation
+					target_input = self.normalized_observation
 				else:
 					policy_input = last_policy_layer
 					target_input = last_target_layer
@@ -160,16 +160,16 @@ class QNetwork():
 		#print np.squeeze(self.sess.run(self.target_q_layer, feed_dict={self.observation:obs}))
 		#obs = obs.append(obs[0], axis = 0)
 
-		return np.squeeze(self.sess.run(self.policy_q_layer, feed_dict={self.observation:obs}))
+		return np.squeeze(self.sess.run(self.policy_q_layer, feed_dict={self.next_observation:obs}))
 
-	def target_inference(self, obs):
-		return self.sess.run(self.target_q_layer, feed_dict={self.next_observation:obs})
+	#def target_inference(self, obs):
+	#	return self.sess.run(self.target_q_layer, feed_dict={self.next_observation:obs})
 
 	def build_loss(self, error_clip, num_actions, double_dqn):
 		''' build loss graph '''
 		with tf.name_scope("loss"):
 
-			predictions = tf.reduce_max(tf.mul(self.policy_q_layer, self.actions), 1)
+			predictions = tf.stop_gradient((tf.reduce_max(tf.mul(self.target_q_layer, self.actions), 1) - self.rewards)*(1 - self.terminals))
 
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
@@ -178,21 +178,22 @@ class QNetwork():
 				indices = tf.range(0, tf.size(max_actions) * num_actions, num_actions) + max_actions
 				max_action_values = tf.gather(tf.reshape(self.target_q_layer, shape=[-1]), indices)
 			else:
-				max_action_values = tf.reduce_max(self.target_q_layer, 1)
+				max_action_values = tf.reduce_max(self.policy_q_layer, 1)
 
-			targets = tf.stop_gradient(self.rewards + (self.discount_factor * max_action_values * (1 - self.terminals)))
+			targets =  (self.discount_factor * max_action_values)
 
 			difference = tf.abs(predictions - targets)
 			#diff_error = tf.square(difference)
 
-			penalty_coeff = 4
+			#penalty_coeff = 4
 
-			maxConstraintDiff = tf.nn.relu(self.max_ls - predictions)
-			minConstraintDiff = tf.nn.relu(predictions - self.min_us)
+			#maxConstraintDiff = tf.nn.relu(self.max_ls - predictions)
+			#minConstraintDiff = tf.nn.relu(predictions - self.min_us)
 			#minConstraintError = tf.stop_gradient(penalty_coeff * tf.square(tf.nn.relu(predictions - self.min_real_discounted_reward)))
 			#minConstraintError = 0
 
 			#TODO change
+			"""
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(minConstraintDiff, 0.0, error_clip)
 				linear_part = minConstraintDiff - quadratic_part
@@ -206,7 +207,7 @@ class QNetwork():
 				maxConstraintError = penalty_coeff * (0.5 * tf.square(quadratic_part) + (error_clip * linear_part))
 			else:
 				maxConstraintError = penalty_coeff * (0.5 * tf.square(maxConstraintDiff))
-
+"""
 			if error_clip >= 0:
 				quadratic_part = tf.clip_by_value(difference, 0.0, error_clip)
 				linear_part = difference - quadratic_part
@@ -214,8 +215,8 @@ class QNetwork():
 			else:
 				diff_error = (0.5 * tf.square(difference))
 
-			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
-			#return tf.reduce_sum(diff_error)
+			#return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
+			return tf.reduce_sum(diff_error)
 
 	def train(self, o1, a, r, o2, t, l, u):
 		''' train network on batch of experiences
