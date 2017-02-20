@@ -20,6 +20,8 @@ class QNetwork():
 			if not os.path.exists(self.path):
 				os.makedirs(self.path)
 			self.name = args.agent_name
+			self.priority_replay = args.priority_replay
+			self.enable_constraints = args.enable_constraints
 
 			# input placeholders
 			self.observation = tf.placeholder(tf.float32, shape=[None, args.screen_dims[0], args.screen_dims[1], args.history_length], name="observation")
@@ -123,7 +125,10 @@ class QNetwork():
 				print (policy_var.name, target_var.name)
 			self.policy_network_params = policy_vars
 
-			self.loss = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
+			
+
+			self.losses = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
+			self.loss = tf.reduce_mean(self.losses)
 
 			if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
 				self.train_op = tf.train.RMSPropOptimizer(
@@ -173,10 +178,10 @@ class QNetwork():
 
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
-				max_actions = tf.to_int32(tf.argmax(self.policy_q_layer, 1))
+				max_action_values = self.target_q_layer * tf.one_hot(tf.argmax(self.policy_q_layer, 1), depth=num_actions)
 				# tf.gather doesn't support multidimensional indexing yet, so we flatten output activations for indexing
-				indices = tf.range(0, tf.size(max_actions) * num_actions, num_actions) + max_actions
-				max_action_values = tf.gather(tf.reshape(self.target_q_layer, shape=[-1]), indices)
+				#indices = tf.range(0, tf.size(max_actions) * num_actions, num_actions) + max_actions
+				#max_action_values = tf.gather(tf.reshape(self.target_q_layer, shape=[-1]), indices)
 			else:
 				max_action_values = tf.reduce_max(self.target_q_layer, 1)
 
@@ -214,8 +219,10 @@ class QNetwork():
 			else:
 				diff_error = (0.5 * tf.square(difference))
 
-			return tf.reduce_sum(diff_error + maxConstraintError + minConstraintError)
-			#return tf.reduce_sum(diff_error)
+			if self.enable_constraints:
+				return diff_error + maxConstraintError + minConstraintError
+			else:
+				return diff_error
 
 	def train(self, o1, a, r, o2, t, l, u):
 		''' train network on batch of experiences
@@ -227,17 +234,16 @@ class QNetwork():
 			o2: succeeding observations
 		'''
 
-		temp = self.sess.run([self.train_op, self.loss], 
+		train_op, losses, loss = self.sess.run([self.train_op, self.losses, self.loss], 
 			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l, self.min_us:u})
 		#print ('hi')
 		#print (temp)
-		loss = temp[1]
 
 		self.total_updates += 1
 		if self.total_updates % self.target_update_frequency == 0:
 			self.sess.run(self.update_target)
 
-		return loss
+		return loss, losses
 
 
 	def save_model(self, epoch):

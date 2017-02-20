@@ -72,6 +72,8 @@ def main():
 
 	parser.add_argument("--parallel", help="parallelize acting and learning", action='store_true')
 	parser.add_argument("--double_dqn", help="use double q-learning algorithm in error target calculation", action='store_true')
+
+	parser.add_argument("--priority_replay", help="Use Priority Replay", action='store_true')
 	
 	#TODO: Change to K and add documentation
 	parser.add_argument("--enable_constraints",

@@ -19,6 +19,7 @@ class ExperienceMemory:
 		self.batch_size = args.batch_size
 		self.num_actions = num_actions
 		self.screen_dims = args.screen_dims
+		self.priority_replay = args.priority_replay
 
 		# initialize dataset
 		self.observations = np.zeros((self.capacity, self.screen_dims[0], self.screen_dims[1]), dtype=np.uint8)
@@ -36,6 +37,8 @@ class ExperienceMemory:
 		self.episode_length = 0
 
 		self.discount_factor = 0.99
+
+		self.td_error = np.zeros(self.capacity, dtype=np.float32)
 
 
 	def add(self, obs, act, reward, terminal):
@@ -223,4 +226,4 @@ class ExperienceMemory:
 		#min_dr = self.min_real_discounted_reward[samples]
 		#max_dr = self.max_real_discounted_reward[samples]
 
-		return [o1, a, r, o2, t, max_Ls, min_us]
+		return [samples, o1, a, r, o2, t, max_Ls, min_us]
