@@ -114,9 +114,11 @@ class ExperienceMemory:
 	def get_batch(self, inference_function = None):
 		''' Sample minibatch of experiences for training '''
 		K = 4
+		alpha = 0.6
 		samples = [] # indices of the end of each sample
 		if self.priority_replay:
 			probs = np.clip(self.td_error, 0, 1)[:self.size] + 0.001
+			probs = np.power(probs, alpha)
 			probs /= np.sum(probs)
 			indexes = np.random.choice(self.size, size=self.batch_size*2, p=probs)
 			for index in indexes:
