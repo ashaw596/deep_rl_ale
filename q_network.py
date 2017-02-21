@@ -174,11 +174,11 @@ class QNetwork():
 		''' build loss graph '''
 		with tf.name_scope("loss"):
 
-			predictions = tf.reduce_max(tf.mul(self.policy_q_layer, self.actions), 1)
+			predictions = tf.reduce_sum(tf.mul(self.policy_q_layer, self.actions), 1)
 
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
-				max_action_values = self.target_q_layer * tf.one_hot(tf.argmax(self.policy_q_layer, 1), depth=num_actions)
+				max_action_values = tf.reduce_sum(self.target_q_layer * tf.one_hot(tf.argmax(self.policy_q_layer, 1), depth=num_actions), axis=1)
 				# tf.gather doesn't support multidimensional indexing yet, so we flatten output activations for indexing
 				#indices = tf.range(0, tf.size(max_actions) * num_actions, num_actions) + max_actions
 				#max_action_values = tf.gather(tf.reshape(self.target_q_layer, shape=[-1]), indices)

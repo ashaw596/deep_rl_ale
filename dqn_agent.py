@@ -97,7 +97,8 @@ class DQNAgent():
 						inference_function = lambda s: self.network.target_inference(s)
 					indexes, states, actions, rewards, next_states, terminals, max_ls, min_us = self.memory.get_batch(inference_function)
 					loss, losses = self.network.train(states, actions, rewards, next_states, terminals, max_ls, min_us)
-					self.network.td_error[indexes] = losses
+					#print(losses)
+					self.memory.td_error[indexes] = losses
 					self.train_stats.add_loss(loss)
 
 				self.total_steps += 1

@@ -57,10 +57,8 @@ class ExperienceMemory:
 		self.terminals[self.current] = terminal
 
 		self.current = (self.current + 1) % self.capacity
-		if self.size == self.capacity - 1:
-			self.size = self.capacity
-		else:
-			self.size = max(self.size, self.current)
+
+		self.size = min(self.size + 1, self.capacity)
 
 
 		self.episode_length += 1
@@ -117,20 +115,26 @@ class ExperienceMemory:
 		''' Sample minibatch of experiences for training '''
 		K = 4
 
-		samples = [] # indices of the end of each sample
+		if self.priority_replay:
+			probs = np.clip(self.td_error, 0, 1) + 0.001
+			probs /= np.sum(probs)
+			samples = np.random.choice(self.size, size=self.batch_size*2, p=probs)
+		else:
 
-		while len(samples) < self.batch_size:
+			samples = [] # indices of the end of each sample
 
-			if self.size < self.capacity:  # make this better
-				index = random.randrange(self.history_length, self.current)
-			else:
-				# make sure state from index doesn't overlap with current's gap
-				index = (self.current + random.randrange(self.history_length, self.size)) % self.capacity
-			# make sure no terminal observations are in any state other than the last state
-			if self.terminals[(index - self.history_length):index].any():
-				continue
-			else:
-				samples.append(index)
+			while len(samples) < self.batch_size:
+
+				if self.size < self.capacity:  # make this better
+					index = random.randrange(self.history_length, self.current)
+				else:
+					# make sure state from index doesn't overlap with current's gap
+					index = (self.current + random.randrange(self.history_length, self.size)) % self.capacity
+				# make sure no terminal observations are in any state other than the last state
+				if self.terminals[(index - self.history_length):index].any():
+					continue
+				else:
+					samples.append(index)
 
 		max_Ls = np.full(len(samples), float("-inf"), dtype=np.float32)
 
