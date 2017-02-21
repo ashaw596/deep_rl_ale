@@ -31,6 +31,7 @@ class QNetwork():
 			self.terminals = tf.placeholder(tf.float32, shape=[None], name="terminals")
 			self.normalized_observation = self.observation / 255.0
 			self.normalized_next_observation = self.next_observation / 255.0
+			self.importance_sampling_weights = tf.placeholder(tf.float32, shape=[None], name="importance_sampling_weights")
 
 
 			self.max_ls = tf.placeholder(tf.float32, shape=[None], name="max_ls")
@@ -127,7 +128,12 @@ class QNetwork():
 
 			
 
-			self.losses = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
+			losses = self.build_loss(args.error_clipping, num_actions, args.double_dqn)
+			if self.priority_replay:
+				self.losses = self.importance_sampling_weights*losses
+			else:
+				self.losses = losses
+
 			self.loss = tf.reduce_mean(self.losses)
 
 			if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
@@ -224,7 +230,7 @@ class QNetwork():
 			else:
 				return diff_error
 
-	def train(self, o1, a, r, o2, t, l, u):
+	def train(self, o1, a, r, o2, t, l, u, w):
 		''' train network on batch of experiences
 
 		Args:
@@ -235,7 +241,7 @@ class QNetwork():
 		'''
 
 		train_op, losses, loss = self.sess.run([self.train_op, self.losses, self.loss], 
-			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l, self.min_us:u})
+			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l, self.min_us:u, self.importance_sampling_weights:w})
 		#print ('hi')
 		#print (temp)
 

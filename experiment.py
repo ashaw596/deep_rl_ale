@@ -44,15 +44,18 @@ def evaluate_agent(args, agent, test_emulator, test_stats):
 
 def run_experiment(args, agent, test_emulator, test_stats):
 	
+	startBeta = 0.4
+	endBeta = 0.4
 	agent.run_random_exploration()
 
 	print ("begin epochs")
 	for epoch in range(1, args.epochs + 1):
-
+		percent = float(epoch-1)/(args.epochs)
+		beta = startBeta*(1-percent) + endBeta*percent
 		if epoch == 1:
-			agent.run_epoch(args.epoch_length - agent.random_exploration_length, epoch)
+			agent.run_epoch(args.epoch_length - agent.random_exploration_length, epoch, beta)
 		else:
-			agent.run_epoch(args.epoch_length, epoch)
+			agent.run_epoch(args.epoch_length, epoch, beta)
 
 		results = evaluate_agent(args, agent, test_emulator, test_stats)
 		print("Score for epoch {0}: {1}".format(epoch, results))

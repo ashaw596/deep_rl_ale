@@ -28,6 +28,7 @@ class ExperienceMemory:
 		self.terminals = np.zeros(self.capacity, dtype=np.bool)
 		self.real_discounted_reward = np.zeros(self.capacity, dtype=np.float32)
 		self.is_processed = np.zeros(self.capacity, dtype=np.bool)
+		self.td_error = np.ones(self.capacity, dtype=np.float32)
 
 		#self.min_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
 		#self.max_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
@@ -38,7 +39,6 @@ class ExperienceMemory:
 
 		self.discount_factor = 0.99
 
-		self.td_error = np.zeros(self.capacity, dtype=np.float32)
 
 
 	def add(self, obs, act, reward, terminal):
@@ -55,10 +55,15 @@ class ExperienceMemory:
 		self.actions[self.current] = act
 		self.rewards[self.current] = reward
 		self.terminals[self.current] = terminal
+		self.is_processed[self.current] = 0
+		self.real_discounted_reward[self.current] = 0
+		self.td_error[self.current] = 1
 
 		self.current = (self.current + 1) % self.capacity
 
 		self.size = min(self.size + 1, self.capacity)
+
+
 
 
 		self.episode_length += 1
@@ -116,10 +121,12 @@ class ExperienceMemory:
 		K = 4
 		alpha = 0.6
 		samples = [] # indices of the end of each sample
+		probabilities = []
 		if self.priority_replay:
-			probs = np.clip(self.td_error, 0, 1)[:self.size] + 0.001
-			probs = np.power(probs, alpha)
-			probs /= np.sum(probs)
+			#probs = np.clip(self.td_error, 0, 1)[:self.size] + 0.001
+			#probs = np.power(probs, alpha)
+			probs = self.td_error[:self.size]
+			probs = probs/np.sum(probs)
 			indexes = np.random.choice(self.size, size=self.batch_size*2, p=probs)
 			for index in indexes:
 				if len(samples) > self.batch_size:
@@ -129,6 +136,7 @@ class ExperienceMemory:
 					continue
 				else:
 					samples.append(index)
+					probabilities.append(probs[index])
 		else:
 			while len(samples) < self.batch_size:
 
@@ -237,4 +245,4 @@ class ExperienceMemory:
 		#min_dr = self.min_real_discounted_reward[samples]
 		#max_dr = self.max_real_discounted_reward[samples]
 
-		return [samples, o1, a, r, o2, t, max_Ls, min_us]
+		return [samples, o1, a, r, o2, t, max_Ls, min_us, np.asarray(probabilities)]

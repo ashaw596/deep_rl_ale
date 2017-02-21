@@ -22,6 +22,7 @@ class DQNAgent():
 		self.test_exploration_rate = args.test_exploration_rate
 		self.recording_frequency = args.recording_frequency
 		self.enable_constraints = args.enable_constraints
+		self.priority_replay = args.priority_replay
 
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
@@ -75,7 +76,8 @@ class DQNAgent():
 				#	self.memory.calc_real_discounted_reward(np.amax(q_values))
 
 
-	def run_epoch(self, steps, epoch):
+	def run_epoch(self, steps, epoch, beta):
+		alpha = 0.6
 
 		with tqdm(total=steps) as pbar:
 			step = 0
@@ -95,10 +97,16 @@ class DQNAgent():
 					inference_function = None
 					if self.enable_constraints:
 						inference_function = lambda s: self.network.target_inference(s)
-					indexes, states, actions, rewards, next_states, terminals, max_ls, min_us = self.memory.get_batch(inference_function)
-					loss, losses = self.network.train(states, actions, rewards, next_states, terminals, max_ls, min_us)
+					indexes, states, actions, rewards, next_states, terminals, max_ls, min_us, probs = self.memory.get_batch(inference_function)
+					N = self.memory.size
+					if self.priority_replay:
+						weights =  np.power(N*probs, -beta)
+						weights = weights/np.amax(weights)
+					else:
+						weights = np.ones(len(indexes))
+					loss, losses = self.network.train(states, actions, rewards, next_states, terminals, max_ls, min_us, weights)
 					#print(losses)
-					self.memory.td_error[indexes] = losses
+					self.memory.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
 					self.train_stats.add_loss(loss)
 
 				self.total_steps += 1
