@@ -6,6 +6,8 @@ It stores experience samples and samples minibatches for training.
 import numpy as np
 import random
 import math
+import heapq
+from RankPriorityHeap import RankPriorityHeap
 
 
 class ExperienceMemory:
@@ -20,6 +22,7 @@ class ExperienceMemory:
 		self.num_actions = num_actions
 		self.screen_dims = args.screen_dims
 		self.priority_replay = args.priority_replay
+		self.rank_replay = args.rank_replay
 
 		# initialize dataset
 		self.observations = np.zeros((self.capacity, self.screen_dims[0], self.screen_dims[1]), dtype=np.uint8)
@@ -28,7 +31,11 @@ class ExperienceMemory:
 		self.terminals = np.zeros(self.capacity, dtype=np.bool)
 		self.real_discounted_reward = np.zeros(self.capacity, dtype=np.float32)
 		self.is_processed = np.zeros(self.capacity, dtype=np.bool)
+
 		self.td_error = np.ones(self.capacity, dtype=np.float32)
+		if self.rank_replay:
+			self.td_error_heap = RankPriorityHeap(self.capacity, self.batch_size)
+
 
 		#self.min_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
 		#self.max_real_discounted_reward = np.empty(self.capacity, dtype=np.float32)
@@ -59,16 +66,31 @@ class ExperienceMemory:
 		self.real_discounted_reward[self.current] = 0
 		self.td_error[self.current] = 1
 
+		if self.rank_replay:
+			if self.td_error_heap.size() >= self.capacity:
+				self.td_error_heap.replaceArray(self.current, 1)
+			else:
+				self.td_error_heap.add(1)
+
 		self.current = (self.current + 1) % self.capacity
 
-		self.size = min(self.size + 1, self.capacity)
-
-
-
+		self.size = min(self.size + 1, self.capacity)		
 
 		self.episode_length += 1
 		if terminal:
 			self.calc_real_discounted_reward(0)
+
+	def update_loss(self, indexes, losses, alpha):
+		if self.priority_replay:
+			self.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
+		elif self.rank_replay:
+			losses = np.clip(losses, 0, 1)
+			for index, loss in zip(indexes, losses):
+				self.td_error_heap.replaceArray(index, loss)
+
+	def update_priority(self, alpha, skip):
+		self.td_error_heap.resetPartitions(alpha, skip)
+		self.td_error_heap.sortHeap()
 
 	def calc_real_discounted_reward(self, end_reward = 0):
 		#TODO
@@ -119,10 +141,24 @@ class ExperienceMemory:
 	def get_batch(self, inference_function = None):
 		''' Sample minibatch of experiences for training '''
 		K = 4
-		alpha = 0.6
 		samples = [] # indices of the end of each sample
 		probabilities = []
-		if self.priority_replay:
+		if self.rank_replay:
+			randomList = list(self.td_error_heap.getRandom())
+			random.shuffle(randomList)
+			both = list(self.td_error_heap.getRandom()) + randomList
+			#print(both)
+			for index, prob in both:
+				if len(samples) > self.batch_size:
+					break 
+				if self.terminals[(index - self.history_length):index].any() or \
+					(index<self.current-self.size+self.history_length and index>=self.current-self.size):
+					continue
+				else:
+					samples.append(index)
+					probabilities.append(prob)
+
+		elif self.priority_replay:
 			#probs = np.clip(self.td_error, 0, 1)[:self.size] + 0.001
 			#probs = np.power(probs, alpha)
 			probs = self.td_error[:self.size]

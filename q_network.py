@@ -22,6 +22,8 @@ class QNetwork():
 			self.name = args.agent_name
 			self.priority_replay = args.priority_replay
 			self.enable_constraints = args.enable_constraints
+			self.alpha = args.alpha
+			self.skip = args.skip
 
 			# input placeholders
 			self.observation = tf.placeholder(tf.float32, shape=[None, args.screen_dims[0], args.screen_dims[1], args.history_length], name="observation")
@@ -247,6 +249,7 @@ class QNetwork():
 
 		self.total_updates += 1
 		if self.total_updates % self.target_update_frequency == 0:
+			self.memory.update_priority(self.alpha, self.skip)
 			self.sess.run(self.update_target)
 
 		return loss, losses

@@ -69,11 +69,14 @@ def main():
 	parser.add_argument("--recording_frequency", type=int, help="number of steps before tensorboard recording", default=50000)
 
 	parser.add_argument("--saving_threshold", type=int, help="min score threshold for saving model.", default=0)
+	parser.add_argument("--alpha", type=float, help="alpha for priority_replay", default=0.7)
+	parser.add_argument("--skip", type=int, help="skip for priority_replay", default=0)
 
 	parser.add_argument("--parallel", help="parallelize acting and learning", action='store_true')
 	parser.add_argument("--double_dqn", help="use double q-learning algorithm in error target calculation", action='store_true')
 
 	parser.add_argument("--priority_replay", help="Use Priority Replay", action='store_true')
+	parser.add_argument("--rank_replay", help="Use Proportional Priority Replay", action='store_true')
 	
 	#TODO: Change to K and add documentation
 	parser.add_argument("--enable_constraints",

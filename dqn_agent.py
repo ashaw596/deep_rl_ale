@@ -7,6 +7,7 @@ class DQNAgent():
 
 	def __init__(self, args, q_network, emulator, experience_memory, num_actions, train_stats):
 
+		self.alpha = args.alpha
 		self.network = q_network
 		self.emulator = emulator
 		self.memory = experience_memory
@@ -23,6 +24,9 @@ class DQNAgent():
 		self.recording_frequency = args.recording_frequency
 		self.enable_constraints = args.enable_constraints
 		self.priority_replay = args.priority_replay
+		self.rank_replay = args.rank_replay
+		self.alpha = args.alpha
+		self.skip = args.skip
 
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
@@ -77,8 +81,7 @@ class DQNAgent():
 
 
 	def run_epoch(self, steps, epoch, beta):
-		alpha = 0.6
-
+		self.memory.td_error_heap.resetPartitions(self.alpha, self.skip)
 		with tqdm(total=steps) as pbar:
 			step = 0
 			terminal = False
@@ -106,7 +109,8 @@ class DQNAgent():
 						weights = np.ones(len(indexes))
 					loss, losses = self.network.train(states, actions, rewards, next_states, terminals, max_ls, min_us, weights)
 					#print(losses)
-					self.memory.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
+					self.memory.update_loss(indexes, losses, self.alpha)
+					#self.memory.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
 					self.train_stats.add_loss(loss)
 
 				self.total_steps += 1
