@@ -81,12 +81,12 @@ class ExperienceMemory:
 			self.calc_real_discounted_reward(0)
 
 	def update_loss(self, indexes, losses, alpha):
-		if self.priority_replay:
-			self.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
-		elif self.rank_replay:
+		if self.rank_replay:
 			losses = np.clip(losses, 0, 1)
 			for index, loss in zip(indexes, losses):
 				self.td_error_heap.replaceArray(index, loss)
+		elif self.priority_replay:
+			self.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
 
 	def update_priority(self, alpha, skip):
 		if self.rank_replay:
