@@ -77,6 +77,7 @@ def main():
 
 	parser.add_argument("--priority_replay", help="Use Priority Replay", action='store_true')
 	parser.add_argument("--rank_replay", help="Use Proportional Priority Replay", action='store_true')
+	parser.add_argument("--rank_full_update_frequency", type=int, help="number of policy network updates between full rank updates", default=10000)
 	
 	#TODO: Change to K and add documentation
 	parser.add_argument("--enable_constraints",

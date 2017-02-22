@@ -27,7 +27,7 @@ class DQNAgent():
 		self.rank_replay = args.rank_replay
 		self.alpha = args.alpha
 		self.skip = args.skip
-		self.rank_full_update_frequency = rank_full_update_frequency
+		self.rank_full_update_frequency = args.rank_full_update_frequency
 
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
