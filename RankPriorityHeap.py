@@ -68,7 +68,7 @@ class RankPriorityHeap:
     heapObject = MaxHeapObject(score, size, size)
     self.array.append(heapObject)
     self.heap.append(heapObject)
-    self.heapFix(size)
+    self.heapFixUp(size)
     assert(len(self.array) <= self.capacity)
 
 
@@ -91,10 +91,39 @@ class RankPriorityHeap:
   def heapReplace(self, index, replacementScore):
     self.heap[index].score = replacementScore
     self.heapFix(index)
-    
+
   def heapFix(self, index):
+    if index==0:
+      self.heapFixDown(index)
+    elif self.heap[(index+1)//2 - 1] > self.heap[index]:
+      self.heapFixUp(index)
+    else:
+      self.heapFixDown(index)
+    
+  def heapFixDown(self, index):
+    pos1 = index*2 + 1
+    pos2 = index*2 + 2
+    while pos1 < self.size():
+      if pos2>=self.size():
+        child = pos1
+      elif self.heap[pos1] < self.heap[pos2]:
+        child = pos1
+      else:
+        child = pos2
+
+      if self.heap[child] < self.heap[index]:
+        self.heap[child], self.heap[index] = self.heap[index], self.heap[child]
+        self.heap[child].index = child
+        self.heap[index].index = index
+        index = child
+        pos1 = index*2 + 1
+        pos2 = index*2 + 2
+      else:
+        break
+
+  def heapFixUp(self, index):
     while index > 0:
-      prev = (index+1)/2 - 1 
+      prev = (index+1)//2 - 1 
       if self.heap[prev] > self.heap[index]:
         self.heap[prev], self.heap[index] = self.heap[index], self.heap[prev]
         self.heap[prev].index = prev
