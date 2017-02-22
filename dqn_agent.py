@@ -27,6 +27,7 @@ class DQNAgent():
 		self.rank_replay = args.rank_replay
 		self.alpha = args.alpha
 		self.skip = args.skip
+		self.rank_full_update_frequency = rank_full_update_frequency
 
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
@@ -81,7 +82,7 @@ class DQNAgent():
 
 
 	def run_epoch(self, steps, epoch, beta):
-		self.memory.td_error_heap.resetPartitions(self.alpha, self.skip)
+		self.memory.update_priority(self.alpha, self.skip)
 		with tqdm(total=steps) as pbar:
 			step = 0
 			terminal = False
@@ -114,6 +115,9 @@ class DQNAgent():
 					self.train_stats.add_loss(loss)
 
 				self.total_steps += 1
+
+				if self.total_steps % self.rank_full_update_frequency == 0:
+					self.memory.update_priority(self.alpha, self.skip)
 
 				if self.total_steps < self.final_exploration_frame:
 					self.exploration_rate -= (self.exploration_rate - self.final_exploration_rate) / (self.final_exploration_frame - self.total_steps)

@@ -249,7 +249,6 @@ class QNetwork():
 
 		self.total_updates += 1
 		if self.total_updates % self.target_update_frequency == 0:
-			self.memory.update_priority(self.alpha, self.skip)
 			self.sess.run(self.update_target)
 
 		return loss, losses

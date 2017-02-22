@@ -44,8 +44,8 @@ def evaluate_agent(args, agent, test_emulator, test_stats):
 
 def run_experiment(args, agent, test_emulator, test_stats):
 	
-	startBeta = 0.4
-	endBeta = 0.4
+	startBeta = 0
+	endBeta = 0
 	agent.run_random_exploration()
 
 	print ("begin epochs")

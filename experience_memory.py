@@ -89,8 +89,9 @@ class ExperienceMemory:
 				self.td_error_heap.replaceArray(index, loss)
 
 	def update_priority(self, alpha, skip):
-		self.td_error_heap.resetPartitions(alpha, skip)
-		self.td_error_heap.sortHeap()
+		if self.rank_replay:
+			self.td_error_heap.resetPartitions(alpha, skip)
+			self.td_error_heap.sortHeap()
 
 	def calc_real_discounted_reward(self, end_reward = 0):
 		#TODO
