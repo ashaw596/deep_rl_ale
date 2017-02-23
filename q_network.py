@@ -136,7 +136,7 @@ class QNetwork():
 			else:
 				self.losses = losses
 
-			self.loss = tf.reduce_mean(self.losses)
+			self.loss = tf.reduce_sum(self.losses)
 
 			if (args.optimizer == 'rmsprop') and (args.gradient_clip <= 0):
 				self.train_op = tf.train.RMSPropOptimizer(

@@ -150,7 +150,7 @@ class ExperienceMemory:
 			both = list(self.td_error_heap.getRandom()) + randomList
 			#print(both)
 			for index, prob in both:
-				if len(samples) > self.batch_size:
+				if len(samples) >= self.batch_size:
 					break 
 				if self.terminals[(index - self.history_length):index].any() or \
 					(index<self.current-self.size+self.history_length and index>=self.current-self.size):
@@ -166,7 +166,7 @@ class ExperienceMemory:
 			probs = probs/np.sum(probs)
 			indexes = np.random.choice(self.size, size=self.batch_size*2, p=probs)
 			for index in indexes:
-				if len(samples) > self.batch_size:
+				if len(samples) >= self.batch_size:
 					break 
 				if self.terminals[(index - self.history_length):index].any() or \
 					(index<self.current-self.size+self.history_length and index>=self.current-self.size):
