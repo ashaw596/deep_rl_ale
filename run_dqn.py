@@ -53,7 +53,7 @@ def main():
 	parser.add_argument("--discount_factor", type=float, help="constant to discount future rewards", default=0.99)
 	parser.add_argument("--learning_rate", type=float, help="constant to scale parameter updates", default=0.00025)
 	parser.add_argument("--optimizer", type=str, help="optimization method for network", 
-		choices=('rmsprop', 'graves_rmsprop'), default='graves_rmsprop')
+		choices=('rmsprop', 'graves_rmsprop'), default='rmsprop')
 	parser.add_argument("--rmsprop_decay", type=float, help="decay constant for moving average in rmsprop", default=0.95)
 	parser.add_argument("--rmsprop_epsilon", type=int, help="constant to stabilize rmsprop", default=0.01)
 	# set error_clipping to less than 0 to disable
