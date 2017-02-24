@@ -124,7 +124,7 @@ class DQNAgent():
 
 				if self.total_steps < self.final_exploration_frame:
 					percent = min(float(self.total_steps)/self.final_exploration_frame, 1.0)
-					self.exploration_rate = (self.initial_exploration_rate * (1.0 - percent)) + (percent * self.final_exploration_frame)
+					self.exploration_rate = (self.initial_exploration_rate * (1.0 - percent)) + (percent * self.final_exploration_rate)
 
 				if self.total_steps % self.recording_frequency == 0:
 					self.train_stats.record(self.total_steps)

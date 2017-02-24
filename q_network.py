@@ -81,7 +81,6 @@ class QNetwork():
 					padding='VALID',
 					trainable=False,
 					scope="target/conv" + str(layer))
-				
 
 			# initialize fully-connected layers
 			for layer in range(num_dense_layers):
@@ -187,9 +186,7 @@ class QNetwork():
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
 				max_action_values = tf.reduce_sum(self.target_q_layer * tf.one_hot(tf.argmax(self.policy_q_layer, axis=1), depth=num_actions), axis=1)
-				# tf.gather doesn't support multidimensional indexing yet, so we flatten output activations for indexing
-				#indices = tf.range(0, tf.size(max_actions) * num_actions, num_actions) + max_actions
-				#max_action_values = tf.gather(tf.reshape(self.target_q_layer, shape=[-1]), indices)
+
 			else:
 				max_action_values = tf.reduce_max(self.target_q_layer, 1)
 
@@ -244,9 +241,6 @@ class QNetwork():
 
 		train_op, losses, loss = self.sess.run([self.train_op, self.losses, self.loss], 
 			feed_dict={self.observation:o1, self.actions:a, self.rewards:r, self.next_observation:o2, self.terminals:t, self.max_ls:l, self.min_us:u, self.importance_sampling_weights:w})
-		#print ('hi')
-		#print (temp)
-
 		self.total_updates += 1
 		if self.total_updates % self.target_update_frequency == 0:
 			self.sess.run(self.update_target)
