@@ -55,7 +55,7 @@ def main():
 	parser.add_argument("--optimizer", type=str, help="optimization method for network", 
 		choices=('rmsprop', 'graves_rmsprop'), default='rmsprop')
 	parser.add_argument("--rmsprop_decay", type=float, help="decay constant for moving average in rmsprop", default=0.95)
-	parser.add_argument("--rmsprop_epsilon", type=int, help="constant to stabilize rmsprop", default=0.01)
+	parser.add_argument("--rmsprop_epsilon", type=int, help="constant to stabilize rmsprop", default=1e-10)
 	# set error_clipping to less than 0 to disable
 	parser.add_argument("--error_clipping", type=float, help="constant at which td-error becomes linear instead of quadratic", default=1.0)
 	# set gradient clipping to 0 or less to disable.  Currently only works with graves_rmsprop.

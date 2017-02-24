@@ -29,6 +29,7 @@ class DQNAgent():
 		self.skip = args.skip
 		self.rank_full_update_frequency = args.rank_full_update_frequency
 
+		self.initial_exploration_rate = self.initial_exploration_rate
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
 
@@ -115,22 +116,23 @@ class DQNAgent():
 					self.train_stats.add_loss(loss)
 
 				self.total_steps += 1
+				step += 1
+				pbar.update(1)
 
 				if self.total_steps % self.rank_full_update_frequency == 0:
 					self.memory.update_priority(self.alpha, self.skip)
 
 				if self.total_steps < self.final_exploration_frame:
-					self.exploration_rate -= (self.exploration_rate - self.final_exploration_rate) / (self.final_exploration_frame - self.total_steps)
+					percent = min(float(self.total_steps)/self.final_exploration_frame, 1.0)
+					self.exploration_rate = (self.initial_exploration_rate * (1.0 - percent)) + (percent * self.final_exploration_frame)
 
 				if self.total_steps % self.recording_frequency == 0:
 					self.train_stats.record(self.total_steps)
 					self.network.record_params(self.total_steps)
 
-				step += 1
 				#print terminal
 				#print (step)
 				#print (steps)
-				pbar.update(1)
 		self.memory.reset_episode_length()
 
 	def test_step(self, observation):
