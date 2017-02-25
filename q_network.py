@@ -51,7 +51,10 @@ class QNetwork():
 				policy_input = None
 				target_input = None
 				if layer == 0:
-					policy_input = self.normalized_observation
+					if args.double_dqn:
+						policy_input = tf.concat(values=[self.normalized_observation, self.normalized_next_observation], concat_dim=0, name='concat')
+					else:
+						policy_input = self.normalized_observation
 					target_input = self.normalized_next_observation
 				else:
 					policy_input = last_policy_layer
@@ -102,12 +105,19 @@ class QNetwork():
 					scope="target/fc" + str(layer))
 
 			# initialize q_layer
-			self.policy_q_layer = slim.fully_connected(
+			last_q_layer = slim.fully_connected(
 				last_policy_layer, 
 				num_actions,
 				activation_fn=None,
 				trainable=True,
 				scope="policy/fc" + str(num_dense_layers))
+			if args.double_dqn:
+				obs_length = tf.shape(self.normalized_observation, out_type=tf.int32)[0]
+				self.policy_q_layer = tf.slice(input_=last_q_layer, begin=[0,0] , size=[obs_length,-1], name=None)
+				self.next_policy_q_layer = tf.slice(input_=last_q_layer, begin=[obs_length,0] , size=[-1,-1], name=None)
+			else:
+				self.policy_q_layer = last_q_layer
+
 			self.target_q_layer = slim.fully_connected(
 				last_target_layer, 
 				num_actions,
@@ -156,8 +166,8 @@ class QNetwork():
 		Args:
 			observation: the observation
 		'''
-
-		return np.squeeze(self.sess.run(self.policy_q_layer, feed_dict={self.observation:obs}))
+		next_obs = np.empty([0, 84, 84, 4])
+		return np.squeeze(self.sess.run(self.policy_q_layer, feed_dict={self.observation:obs, self.next_observation:next_obs}))
 
 
 	def build_loss(self, error_clip, num_actions, double_dqn):
@@ -168,7 +178,7 @@ class QNetwork():
 			
 			max_action_values = None
 			if double_dqn: # Double Q-Learning:
-				max_actions = tf.to_int32(tf.argmax(self.policy_q_layer, 1))
+				max_actions = tf.to_int32(tf.argmax(self.next_policy_q_layer, 1))
 				# tf.gather doesn't support multidimensional indexing yet, so we flatten output activations for indexing
 				indices = tf.range(0, tf.size(max_actions) * num_actions, num_actions) + max_actions
 				max_action_values = tf.gather(tf.reshape(self.target_q_layer, shape=[-1]), indices)
