@@ -114,18 +114,20 @@ class DQNAgent():
 					#self.memory.td_error[indexes] = np.power(np.clip(losses+0.001, 0, 1), alpha)
 					self.train_stats.add_loss(loss)
 
-				self.total_steps += 1
 
 				if self.total_steps % self.rank_full_update_frequency == 0:
 					self.memory.update_priority(self.alpha, self.skip)
 
-				if self.total_steps < self.final_exploration_frame:
-					self.exploration_rate -= (self.exploration_rate - self.final_exploration_rate) / (self.final_exploration_frame - self.total_steps)
-
+				if self.total_steps <= self.final_exploration_frame:
+					percent = min(1.0, float(self.total_steps)/self.final_exploration_frame)
+					self.exploration_rate = (1.0 - percent)*self.initial_exploration_rate + percent*self.final_exploration_rate
+					
 				if self.total_steps % self.recording_frequency == 0:
 					self.train_stats.record(self.total_steps)
 					self.network.record_params(self.total_steps)
 
+
+				self.total_steps += 1
 				step += 1
 				#print terminal
 				#print (step)
