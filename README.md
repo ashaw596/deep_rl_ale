@@ -13,8 +13,9 @@ The code is still a little messy in some places, and will be cleaned up in the f
 4. [Tensorflow](https://www.tensorflow.org/) for gpu numerical computions and symbolic differentiation.
 5. Linux/OSX, because Tensorflow doesn't support Windows.
 6. [Matplotlib](http://matplotlib.org/) and [Seaborn](https://stanford.edu/~mwaskom/software/seaborn/) for visualizations.
-7. [OpenCV](http://opencv.org/) for image scaling.  Might switch to SciPy since OpenCV was a pain for me to install.
-8. Any dependencies of the above software, of course, like NumPy.
+7. [OpenCV/SciPy](http://opencv.org/) for image scaling.
+8. [TQDM] (Can be installed with pip install tqdm) For an easy way to track running epochs.
+9. Any dependencies of the above software, of course, like NumPy.
 
 ## How to run
 
