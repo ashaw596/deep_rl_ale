@@ -24,7 +24,6 @@ class DQNAgent():
 
 		self.exploration_rate = self.initial_exploration_rate
 		self.total_steps = 0
-
 		self.test_state = []
 
 
@@ -50,7 +49,6 @@ class DQNAgent():
 	def run_random_exploration(self):
 		print("Running random Exploration")
 		for step in tqdm(range(self.random_exploration_length)):
-			#print("step:" + str(step))
 			state, action, reward, terminal, raw_reward = self.emulator.run_step(random.randrange(self.num_actions))
 			self.train_stats.add_reward(raw_reward)
 			self.memory.add(state, action, reward, terminal)
@@ -62,9 +60,6 @@ class DQNAgent():
 
 	def run_epoch(self, steps, epoch):
 		for step in tqdm(range(steps)):
-			#if step%1000==0:
-			#	print step
-
 			state, action, reward, terminal, raw_reward = self.emulator.run_step(self.choose_action())
 			self.memory.add(state, action, reward, terminal)
 			self.train_stats.add_reward(raw_reward)
