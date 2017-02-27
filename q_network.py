@@ -161,7 +161,7 @@ class QNetwork():
 
 			# start tf session
 			gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.666666)  # avoid using all vram for GTX 970
-			self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=True)))
+			self.sess = tf.Session(config=tf.ConfigProto(gpu_options=gpu_options, log_device_placement=True))
 
 			if args.watch:
 				print("Loading Saved Network...")
